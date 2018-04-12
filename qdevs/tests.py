@@ -39,7 +39,7 @@ def test1():
 
 def test2():
 
-    sys = QdevsLimSystem(0.01, 0.01);
+    sys = QdevsLimSystem(0.001, 0.001);
 
     n1 = sys.add_node(C=1.0, R=1.0, I=1.0)
     g1 = sys.add_ground()
