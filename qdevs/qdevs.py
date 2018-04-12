@@ -1,22 +1,20 @@
 ﻿"""Generic DEVS and QDEVS Models."""
 
 from __future__ import division
+
 from collections import deque
 
-_SCIPY = True
-
-try:
-    from scipy.signal import resample
-    from scipy.interpolate import interp1d
-    import numpy as np
-except:
-    _SCIPY = False
+from scipy.signal import resample
+from scipy.interpolate import interp1d
+import numpy as np
 
 _INF = float("inf")
-_EPS = 0.0
+_EPS = 1e-15
 
 
 class DevsEvent(object):
+
+    """Generic DEVS Event"""
 
     def __init__(self, sender, time, value):
 
@@ -31,11 +29,12 @@ class DevsDevice(object):
 
     def __init__(self, state0=0.0):
 
-        self.state = 0.0
-        self.state0 = 0.0
+        self.state = state0
+        self.state0 = state0
         self.tnext = _INF
-        self.tlast = 0.0
+        self.tlast = -_INF
         self.input = 0.0
+        self.sender = None
         self.input_events = deque()
         self.output_devices = []
         self.time_history = []
@@ -43,9 +42,9 @@ class DevsDevice(object):
 
     def connect_outputs(self, *devices):
 
-        """Connect this device to aoutput devices. When this device
-        goes through an internal transistion, it will trigger
-        an external event on those devices and send the event.
+        """Connect this device to an output devices. When this
+        device goes through an internal transistion, it will trigger
+        an external event on these devices and send the event data.
         """
 
         for device in devices:
@@ -69,7 +68,7 @@ class DevsDevice(object):
     def broadcast(self, time):
 
         """Trigger an external event on the connected output devices
-        and send the event to those devices.
+        and send the event data to those devices.
         """
 
         for output_device in self.output_devices:
@@ -89,18 +88,19 @@ class DevsDevice(object):
 
     def external_transition(self, event):
 
-        """An external input device triggers this provides the event
-        data.
+        """An external input device triggers this and provides the
+        event data.
         """
 
+        self.sender = event.sender
         self.input = event.value
         self.evaluate(event.time)
 
     def initialize(self, time):
 
         """Must be implemented in derived class. This is called at the
-        beginning of the simulation. Usually, initial states and tnext
-        values are set here.
+        beginning of the simulation. Usually, initial states and the
+        initial tnext values are set here.
         """
 
         raise NotImplementedError()
@@ -141,7 +141,9 @@ class QdevsDevice(DevsDevice):
 
         self.state = self.state0
         self.trajectory_direction = 0.0
-        self.internal_transition(time)
+        self.save(time)
+        self.evaluate(time)
+        self.tlast = time
 
     def internal_transition(self, time):
 
@@ -152,6 +154,8 @@ class QdevsDevice(DevsDevice):
 
 
 class DevsSystem(object):
+
+    """Generic DEVS system representation and simulator."""
 
     def __init__(self):
 
@@ -186,17 +190,22 @@ class DevsSystem(object):
     def run(self, tstop):
 
         """Run the simulation from the current time until tstop. 
-        Initialize must be called before running for the fisrt time.
-        The simulator can have multiple run calls in the same simulation
-        to enable external events to be implemented.
+        initialize() must be called before running for the first time.
+        The simulator can have multiple run() calls in the same
+        simulation to enable external events to be implemented.
         """
+
         self.tstop = tstop
+
         while(self.time < tstop):
             self.advance()
 
     def advance(self):
 
-        """Advances the simulation to the next scheduled event.
+        """Advances the simulation to the next scheduled event, 
+        imminent devices will have internal transitions, those devices
+        will broadcasts events to their output devices who will then
+        process those events.
         """
 
         tnext = _INF
@@ -227,6 +236,10 @@ class DevsSystem(object):
 
 class QdevsSystem(DevsSystem):
 
+    """ Generic QDEVS system representation and simulator. Contains
+    specific additions for handling quantized devices.
+    """
+
     def __init__(self, granularity=1e-3):
         
         DevsSystem.__init__(self)
@@ -234,7 +247,8 @@ class QdevsSystem(DevsSystem):
 
     def add_devices(self, *devices):
 
-        """Adds one or more devices to the system.
+        """Adds one or more devices to the system and cascades
+        the default granularity to the devices.
         """
 
         for device in devices:
@@ -245,6 +259,10 @@ class QdevsSystem(DevsSystem):
 
 
 class SquareWaveSource(DevsDevice):
+
+    """Simple square wave with variable duty and zero rise/fall
+    time.
+    """
 
     def __init__(self, x1, x2, t1, t2):
 
@@ -278,6 +296,9 @@ class SquareWaveSource(DevsDevice):
 
 class Integrator(QdevsDevice):
 
+    """Simple linear integrator with gain and no limits.
+    """
+
     def __init__(self, gain, granularity=None, x0=0.0):
 
         QdevsDevice.__init__(self, granularity, x0)
@@ -304,6 +325,12 @@ class Integrator(QdevsDevice):
 
 
 class DifferentialEquation(QdevsDevice):
+
+    """Represents a continuous first order ODE of the form:
+
+    x' = a * x + b * u
+
+    """
 
     def __init__(self, a, b, granularity=None, x0=0.0):
 
@@ -338,15 +365,14 @@ def resample(times, values, tf, npoints=1000):
 
     """Resamples the given time/value event arrays from time 0 to tf
     for npoints using a zero-order hold. This is useful for plotting
-    results. Scipy is required.
+    results and quantifying error.
     """
 
-    if _SCIPY:
-        values.append(values[-1])
-        times.append(tf)
-        f = interp1d(times, values, kind='zero')
-        times2 = np.linspace(times[0], times[-1], npoints)
-        values2 = f(times2)
-        return times2, values2
+    values.append(values[-1])
+    times.append(tf)
+    f = interp1d(times, values, kind='zero')
+    times2 = np.linspace(times[0], times[-1], npoints)
+    values2 = f(times2)
+    return times2, values2
 
 

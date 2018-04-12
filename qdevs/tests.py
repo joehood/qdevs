@@ -8,7 +8,7 @@ from qdevslim import *
 
 def test1():
 
-    sys = QdevsSystem(0.1)
+    sys = QdevsSystem(granularity=0.1)
 
     sq = SquareWaveSource(x1=1.0, x2=-1.0, t1=2.0, t2=2.0)
     intg = Integrator(gain=1.0)
@@ -39,11 +39,11 @@ def test1():
 
 def test2():
 
-    sys = QdevsLimSystem(0.001, 0.001);
+    sys = QdevsLimSystem(voltage_granularity=0.001, current_granularity=0.001);
 
     n1 = sys.add_node(C=1.0, R=1.0, I=1.0)
     g1 = sys.add_ground()
-    b1 = sys.add_branch(g1, n1, L=1.0, R=1.0, V=1.0)
+    b1 = sys.add_branch(nodei=g1, nodej=n1, L=1.0, R=1.0, V=1.0)
     
     tf = 10.0
 
@@ -74,13 +74,13 @@ def test3():
     b3 = sys.add_branch(n1, n3, L=10.0, R=1.0e-1, V=1.0)
     b4 = sys.add_branch(n2, n3, L=10.0, R=1.0e-1, V=1.0)
     
-    tf = 500
+    tf = 500.0
     sys.initialize()
     sys.run(tf)
 
     n2.R = 0.01
 
-    tf = 1000
+    tf = 1000.0
     sys.run(tf)
 
     plt.figure()
