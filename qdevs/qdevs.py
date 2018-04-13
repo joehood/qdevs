@@ -9,8 +9,7 @@ from scipy.interpolate import interp1d
 import numpy as np
 
 _INF = float("inf")
-_EPS = 1e-15
-
+_EPS = 1e-9
 
 class DevsEvent(object):
 
@@ -29,10 +28,11 @@ class DevsDevice(object):
 
     def __init__(self, state0=0.0):
 
-        self.state = state0
         self.state0 = state0
+        self.state = state0
+        self.last_state = state0
         self.tnext = _INF
-        self.tlast = -_INF
+        self.tlast = 0.0
         self.input = 0.0
         self.sender = None
         self.input_events = deque()
@@ -63,16 +63,19 @@ class DevsDevice(object):
         """
 
         while self.input_events:
-            self.external_transition(self.input_events.pop())
+            event = self.input_events.pop()
+            self.sender = event.sender
+            self.input = event.value
+            self.update(event.time)
 
     def broadcast(self, time):
 
-        """Trigger an external event on the connected output devices
-        and send the event data to those devices.
+        """Send external events to the connected output devices.
         """
 
-        for output_device in self.output_devices:
-            output_device.add_input(DevsEvent(self, time, self.state))
+        if self.state != self.last_state:
+            for output_device in self.output_devices:
+                output_device.add_input(DevsEvent(self, time, self.state))
 
     def save(self, time, reset=False):
 
@@ -82,44 +85,32 @@ class DevsDevice(object):
         if reset:
             self.time_history = [time]
             self.state_history = [self.state]
-        else:
+
+        elif self.state != self.last_state:
             self.time_history.append(time)
             self.state_history.append(self.state)
 
-    def external_transition(self, event):
-
-        """An external input device triggers this and provides the
-        event data.
-        """
-
-        self.sender = event.sender
-        self.input = event.value
-        self.evaluate(event.time)
-
     def initialize(self, time):
 
-        """Must be implemented in derived class. This is called at the
+        """Can be overridden in derived class. This is called at the
         beginning of the simulation. Usually, initial states and the
         initial tnext values are set here.
         """
 
-        raise NotImplementedError()
+        self.state = self.state0
+        self.last_state = self.state0
+        self.tlast = time
+        self.tnext = _INF
+        self.save(time, reset=True)
+        self.broadcast(time)
 
-    def internal_transition(self, time):
+    def update(self, time):
 
         """Must be implemented in derived class. This will be called when
         the simulation advances to the current tnext value of this
         device. Usually the state is updated to the appropriate next
         value here.
         """
-
-        raise NotImplementedError()
-
-    def evaluate(self, time):
-
-        """Must be implemented in derived class. This is called when it
-        is necessary for this device to determine it's next transition
-        time (tnext)."""
 
         raise NotImplementedError()
 
@@ -130,27 +121,31 @@ class QdevsDevice(DevsDevice):
      functionality speicific to Quantized DEVS devices.
     """
 
-    def __init__(self, granularity=1e-3, state0=0.0):
+    def __init__(self, state0=0.0, granularity=1e-3, epsilon=None):
 
         DevsDevice.__init__(self, state0)
 
         self.granularity = granularity
-        self.trajectory_direction = 0.0
 
+        if epsilon:
+            self.epsilon = epsilon
+        elif granularity:
+            self.epsilon = 0.5 * granularity
+
+        self.internal_state = state0
+        self.derivative = 0.0
+        self.epsilon = 0.0
+        
     def initialize(self, time):
 
         self.state = self.state0
-        self.trajectory_direction = 0.0
-        self.save(time)
-        self.evaluate(time)
+        self.internal_state = self.state0
+        self.derivative = 0.0
         self.tlast = time
-
-    def internal_transition(self, time):
-
-        self.state += self.trajectory_direction * self.granularity
-        self.save(time)
-        self.evaluate(time)
-        self.tlast = time
+        self.tnext = _INF
+        self.update(time)
+        self.save(time, reset=True)
+        self.broadcast(time)
 
 
 class DevsSystem(object):
@@ -225,7 +220,7 @@ class DevsSystem(object):
                 imminent_devices.append(device)
 
         for device in imminent_devices:
-            device.internal_transition(self.time)
+            device.update(self.time)
 
         for device in imminent_devices:
             device.broadcast(self.time)
@@ -240,10 +235,19 @@ class QdevsSystem(DevsSystem):
     specific additions for handling quantized devices.
     """
 
-    def __init__(self, granularity=1e-3):
+    def __init__(self, granularity=1e-3, epsilon=None):
         
         DevsSystem.__init__(self)
-        self.granularity = granularity
+
+        if granularity:
+            self.granularity = granularity
+        else:
+            self.granularity =  1e-3
+
+        if epsilon:
+            self.epsilon = epsilon
+        else:
+            self.epsilon = 0.25 * granularity
 
     def add_devices(self, *devices):
 
@@ -252,10 +256,47 @@ class QdevsSystem(DevsSystem):
         """
 
         for device in devices:
+
             if isinstance(device, QdevsDevice):
+
                 if not device.granularity:
                     device.granularity = self.granularity
+
+                if not device.epsilon:
+                    device.epsilon = self.epsilon
+
             self.devices.append(device)
+
+
+class ConstantSource(DevsDevice):
+
+    """Constant source model
+    """
+
+    def __init__(self, value):
+
+        DevsDevice.__init__(self)
+
+        self.state0 = value
+        self.state = value
+
+    def initialize(self, time):
+
+        self.state = self.state0
+        self.tlast = time
+        self.tnext = _INF
+        self.save(time, reset=True)
+        self.broadcast(time)
+
+    def set_value(self, value):
+
+        if value != self.value:
+            self.value = value
+        self.tnext = self.tlast
+
+    def update(self, time):
+
+        self.save(time)
 
 
 class SquareWaveSource(DevsDevice):
@@ -268,6 +309,7 @@ class SquareWaveSource(DevsDevice):
 
         DevsDevice.__init__(self)
 
+        self.state0 = x1
         self.x1 = x1
         self.x2 = x2
         self.t1 = t1
@@ -275,12 +317,16 @@ class SquareWaveSource(DevsDevice):
 
     def initialize(self, time):
 
+        self.state = self.state0
         self.tlast = time
-        self.state = self.x1
         self.tnext = time + self.t1
         self.save(time, reset=True)
+        self.broadcast(time)
 
-    def internal_transition(self, time):
+    def update(self, time):
+
+        self.last_state = self.state
+        self.tnext = self.t1 + self.t2
 
         if self.state == self.x1:
             self.state = self.x2
@@ -290,76 +336,92 @@ class SquareWaveSource(DevsDevice):
             self.state = self.x1
             self.tnext = time + self.t1
 
-        self.save(time)
         self.tlast = time
-
+        self.save(time)
+        
 
 class Integrator(QdevsDevice):
 
-    """Simple linear integrator with gain and no limits.
+    """Simple linear integrator with gain and no limits with form:
+    x' = k*u
     """
 
-    def __init__(self, gain, granularity=None, x0=0.0):
+    def __init__(self, gain, x0=0.0, granularity=None, epsilon=None):
 
-        QdevsDevice.__init__(self, granularity, x0)
+        QdevsDevice.__init__(self, x0, granularity, epsilon)
 
         self.gain = gain
 
-    def evaluate(self, time):
+    def update(self, time):
 
-        self.tnext = float("inf")
+        self.last_state = self.state
+        dt = time - self.tlast
+        next_dt = _INF
 
-        if self.input != 0.0:
+        self.internal_state += self.derivative * dt
 
-            delta_time = self.granularity / (self.gain * self.input)
+        if self.internal_state >= self.state + self.granularity - self.epsilon:
+            self.state += self.granularity
+            self.broadcast(time)
 
-            if delta_time > 0.0:
-                self.tnext = time + delta_time
-                self.trajectory_direction = 1.0
+        elif self.internal_state <= self.state - 0.5 * self.granularity + self.epsilon:
+            self.state -= self.granularity
+            self.broadcast(time)
 
-            elif delta_time < 0.0:
-                self.tnext = time - delta_time
-                self.trajectory_direction = -1.0
-            else:
-                self.tnext = time + _EPS
+        self.derivative = self.gain * self.input
 
+        if self.derivative > 0.0:
+            next_dt = (self.state + self.granularity - self.internal_state) / self.derivative
+        
+        elif self.derivative < 0.0:
+            next_dt = (self.state - 0.5 * self.granularity - self.internal_state) / self.derivative 
+        
+        self.tnext = time + abs(next_dt)
+        self.tlast = time
+        self.save(time)
+        
 
 class DifferentialEquation(QdevsDevice):
 
     """Represents a continuous first order ODE of the form:
-
     x' = a * x + b * u
-
     """
 
-    def __init__(self, a, b, granularity=None, x0=0.0):
+    def __init__(self, a, b, x0=0.0, granularity=None, epsilon=None):
 
-        QdevsDevice.__init__(self, granularity, x0)
+        QdevsDevice.__init__(self, x0, granularity, epsilon)
 
         self.a = a
         self.b = b
 
-    def evaluate(self, time):
+    def update(self, time):
 
-        self.tnext = float("inf")
+        self.last_state = self.state
+        dt = time - self.tlast
+        next_dt = _INF
 
-        denom = self.a * self.state + self.b * self.input
+        self.internal_state += self.derivative * dt
 
-        if denom != 0.0:
+        if self.internal_state >= self.state + self.granularity - self.epsilon:
+            self.state += self.granularity
+            self.broadcast(time)
 
-            delta_time = self.granularity / denom
+        elif self.internal_state <= self.state - 0.5 * self.granularity + self.epsilon:
+            self.state -= self.granularity
+            self.broadcast(time)
 
-            if delta_time > 0.0:
-                self.tnext = time + delta_time
-                self.trajectory_direction = 1.0
+        self.derivative = self.a * self.internal_state + self.b * self.input
 
-            elif delta_time < 0.0:
-                self.tnext = time - delta_time
-                self.trajectory_direction = -1.0
-
-            else:
-                self.tnext = time + _EPS
-
+        if self.derivative > 0.0:
+            next_dt = (self.state + self.granularity - self.internal_state) / self.derivative
+        
+        elif self.derivative < 0.0:
+            next_dt = (self.state - 0.5 * self.granularity - self.internal_state) / self.derivative 
+        
+        self.tnext = time + abs(next_dt)
+        self.tlast = time
+        self.save(time)
+        
 
 def resample(times, values, tf, npoints=1000):
 
