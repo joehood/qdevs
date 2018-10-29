@@ -1,7 +1,8 @@
-# Python QDEVS Library
-Quantized Discrete Event Simulation (QDEVS) engine with Latency Inserion Method (LIM) electrical circuit tolopogy support.
+# Quantized-DEVS Simulator Prototype Library
 
-## Example
+Quantized Discrete Event Simulation (QDEVS) engine with Latency Inserion Method (LIM) electrical circuit tolopogy support. Python and Matlab prototype code.
+
+## Python Example
 
 ![plot1.png](img/plot1.png?raw=true "RLC Circuit Simulation Output")
 
