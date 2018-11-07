@@ -1,6 +1,7 @@
 clear all
 
 
+%    Schematic
 %
 %          R     L     v1    R     L     v2
 %    .----VVV---UUU----o----VVV---UUU----o
