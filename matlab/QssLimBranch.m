@@ -9,38 +9,51 @@ classdef QssLimBranch < QssAtom
         E;     % series ideal voltage
         R;     % series resistance
         L;     % series inductance
-        invL;  % 1/L
+        den;   % 1/L
         
     end  
   
     methods
   
-        function obj = QssLimBranch(E, R, L, i0, nodei, nodej, dQ, eps)
+        function self = QssLimBranch(name, E, R, L, i0, nodei, nodej)
             
-            obj@QssAtom(dQ, eps);
+            self@QssAtom(name, i0);
             
-            obj.nodei = nodei;
-            obj.nodej = nodej;
-            obj.E = E;
-            obj.R = R;
-            obj.L = L;
-            obj.invL = 1/L;
-            
-            obj.x0 = i0;
-            
-            obj.nodei = nodei;
-            obj.nodej = nodej;
-            
-            obj.nodei.connect_branch(obj, 1);
-            obj.nodej.connect_branch(obj, -1);
+            self.nodei = nodei;
+            self.nodej = nodej;
+            self.E = E;
+            self.R = R;
+            self.L = L;
+            self.den = 1/L;           
+            self.nodei = nodei;
+            self.nodej = nodej;          
+            self.nodei.connect_branch(self, 1);
+            self.nodej.connect_branch(self, -1);
             
         end
         
-        function update_derivative(obj)
+        function update_derivative(self)
             
-            obj.d = obj.invL * (obj.E - obj.x * obj.R - obj.nodei.x - obj.nodej.x);
+            if self.nodei.is_gnd && self.nodej.is_gnd
+                vij = 0.0;
+            elseif self.nodei.is_gnd
+                vij = -self.nodej.q;
+            elseif self.nodej.is_gnd
+                vij = self.nodei.q;
+            else
+                vij = self.nodei.q - self.nodej.q;
+            end
+            
+            self.d = self.den * (self.E - self.q * self.R + vij);
         
         end
+       
+        function dext(self)
+           
+           self.nodei.trigger = 1;  
+           self.nodej.trigger = 1;
+
+        end 
         
     end
     

@@ -1,12 +1,24 @@
-clear variables
-
-dQ = 0.01;
-epsilon = dQ/4;
-
-tstop = 10.0;
+clear all
 
 
-H = 1.0;
+%
+%          R     L     v1    R     L     v2
+%    .----VVV---UUU----o----VVV---UUU----o
+%    |      --->       |       --->      |
+%   ( ) E    i1       [ ] G,C   i2      [ ] G,C
+%    |                 |                 |
+%    '-----------------+-----------------'
+%                     -+- 
+%                      '
+%
+
+dQvoltage = 0.01;
+dQcurrent = 0.008;
+eps_factor = 0.25;
+
+tstop = 15.0;
+
+H = 0.0;
 G = 1.0;
 C = 1.0;
 E = 1.0;
@@ -14,7 +26,7 @@ R = 1.0;
 L = 1.0;
 
 % create the system:
-sys = QssLimSystem(dQ, epsilon);
+sys = QssLimSystem(dQvoltage, dQcurrent, eps_factor);
 
 % define nodes:
 gnd = QssLimGround(0);
@@ -34,18 +46,11 @@ sys.add_branch(branch2);
 
 % initialize and run:
 sys.init(0);
+sys.run(tstop*0.5);
+branch1.E = 2.0;
 sys.run(tstop);
 
-% run state space benchmark:
-%
-%          R     L     v1    R     L     v2
-%    .----VVV---UUU----o----VVV---UUU----o
-%    |      --->       |       --->      |
-%   ( ) E    i1       [ ] G,C   i2      [ ] G,C
-%    |                 |                 |
-%    '-----------------+-----------------'
-%                     -+- 
-%                      '
+%   state space benchmark:
 %
 %   E  = i1*R + i1'*L + v1
 %   v1 = i2*R + i2'*L + v2
@@ -81,29 +86,48 @@ bpr = apr * h * b;
 x = zeros(n, length(t));
 
 for k = 2:length(t)
+    if t(k-1) > tstop * 0.5;
+        u = [ 2.0 ];
+    end
     x(:,k) = apr * x(:,k-1) + bpr * u; 
 end
 
 figure;
 
 subplot(2, 2, 1);
-plot(t, x(3,:), 'r-'); hold on;
-plot(node1.thist, node1.qhist, 'k.');
+plot(t, x(3,:), 'm--'); hold on;
+plot_qss(node1.thist, node1.qhist, t, 'r-', 'k.');
+legend({'ss', 'qss', 'qss (zoh)'}, 'Location', 'southeast');
+title(node1.name);
 
 subplot(2, 2, 2);
-plot(t, x(4,:), 'm-'); hold on;
-plot(node2.thist, node2.qhist, 'k.');
+plot(t, x(4,:), 'm--'); hold on;
+plot_qss(node2.thist, node2.qhist, t, 'r-', 'k.');
+legend({'ss', 'qss', 'qss (zoh)'}, 'Location', 'southeast');
+title(node2.name);
 
 subplot(2, 2, 3);
-plot(t, x(1,:), 'b-'); hold on;
-plot(branch1.thist, branch1.qhist, 'k.');
+plot(t, x(1,:), 'c--'); hold on;
+plot_qss(branch1.thist, branch1.qhist, t, 'b-', 'k.');
+legend({'ss', 'qss', 'qss (zoh)'}, 'Location', 'southeast');
+title(branch1.name);
 
 subplot(2, 2, 4);
-plot(t, x(2,:), 'c-'); hold on;
-plot(branch2.thist, branch2.qhist, 'k.');
+plot(t, x(2,:), 'c--'); hold on;
+plot_qss(branch2.thist, branch2.qhist, t, 'b-', 'k.');
+legend({'ss', 'qss', 'qss (zoh)'}, 'Location', 'southeast');
+title(branch2.name);
 
 
 disp('done.');
+
+
+function plot_qss(thist, qhist, t, linestyle, pointstyle)
+    v1 = interp1(thist, qhist, t, 'previous');
+    plot(thist, qhist, pointstyle);
+    plot(t, v1, linestyle); hold on;
+    
+end
 
 
 

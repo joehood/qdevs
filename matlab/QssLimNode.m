@@ -3,11 +3,11 @@
 classdef QssLimNode < QssAtom
 
     properties
-        
+      
         H;        % shunt ideal current
         G;        % shunt conductance
         C;        % shunt capacitance
-        invC;     % 1/C
+        den;      % 1/C
         is_gnd;   % is ground/reference node
         branches; % handles to connected branches
         nbranch;  % number of connected branches
@@ -17,38 +17,47 @@ classdef QssLimNode < QssAtom
   
     methods
   
-        function obj = QssLimNode(H, G, C, v0, is_gnd, dQ, eps)
+        function self = QssLimNode(name, H, G, C, v0)
             
-            obj@QssAtom(dQ, eps);
+            self@QssAtom(name, v0);
             
-            obj.H = H;
-            obj.G = G;
-            obj.C = C;
-            obj.invC = 1/C;
-            obj.is_gnd = is_gnd;
+            self.H = H;
+            self.G = G;
+            self.C = C;
+            self.den = 1/C;
+            self.is_gnd = 0;              
+            self.nbranch = 0;         
+            self.branches = QssLimBranch.empty(0);
+            self.brn_sign = double.empty(0);
             
-            obj.x0 = v0;     
-            
-            obj.nbranch = 0;
-            
-            obj.branches = QssLimBranch.empty(0);
-            obj.brn_sign = double.empty(0);
         end
         
-        function connect_branch(obj, branch, direction)
+        function connect_branch(self, branch, direction)
             
-            obj.nbranch = obj.nbranch + 1;
-            obj.branches(obj.nbranch) = branch;
-            obj.brn_sign(obj.nbranch) = direction;
+            self.nbranch = self.nbranch + 1;
+            self.branches(self.nbranch) = branch;
+            self.brn_sign(self.nbranch) = direction;
          
         end
         
-        function update_derivative(obj)
+        function update_derivative(self)
             
-            isum = sum(obj.branches.q * obj.brn_sign);
+            isum = 0;
             
-            obj.d = obj.invC * (obj.H - obj.x * obj.G - isum);
+            for k = 1:self.nbranch
+                isum = isum + self.branches(k).q * self.brn_sign(k);
+            end
+            
+            self.d = self.den * (self.H - self.q * self.G - isum);
         
+        end
+       
+        function dext(self)
+           
+           for k = 1:self.nbranch                 
+               self.branches(k).trigger = 1;           
+           end 
+           
         end
         
     end

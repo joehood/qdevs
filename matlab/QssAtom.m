@@ -3,83 +3,118 @@
 classdef QssAtom < handle
 
     properties
-        x;      % internal state
-        x0;     % internal state at system time = time0
-        d;      % derivative
-        q;      % external (quantized) state
-        qlast;  % ext state at last internal transition
-        dQ;     % quantum
-        eps;    % hysteresis width
-        tlast;  % time at last internal transition
-        tnext;  % next transition time (from ta or ext trigger)
-        thist;  % time history array
-        qhist;  % q history array
-        k;      % history array index
+        
+        name;    % node name (helpful for debugging)
+        x;       % internal state
+        x0;      % internal state at system time = time0
+        d;       % derivative
+        q;       % external (quantized) state
+        qlast;   % ext state at last internal transition
+        dQ;      % quantum
+        epsilon; % hysteresis width
+        t0;      % initial time
+        tlast;   % time at last internal transition
+        tnext;   % next transition time (from ta or ext trigger)
+        thist;   % time history array
+        qhist;   % q history array
+        khist;   % history array index
+        time;    % simulation time
+        trigger; % external update trigger
+        
     end  
   
     methods
   
-        function obj = QssAtom(dQ, eps)
-            obj.dQ = dQ;
-            obj.eps = eps; 
-        end
-        
-        function init(obj, t0)
+        function self = QssAtom(name, x0)
             
-            obj.x = obj.x0;
-            obj.q = obj.x0;
-            obj.qlast = obj.x0;
-            obj.tlast = t0;
-            
-            obj.d = 0;
-            obj.tnext = inf;
-            
-            obj.thist(1) = t0;
-            obj.qhist(1) = obj.q;
-            obj.k = 1; 
-            
-            obj.update_derivative();
+            self.name = name;
+            self.x0 = x0;
             
         end
         
-        function quantize(obj)  
+        function init(self, t0)
             
-            if obj.x >= obj.q + obj.dQ - obj.eps
-                obj.q = obj.q + obj.dQ;
-            elseif obj.x <= obj.q - 0.5 * obj.dQ + obj.eps
-                obj.q = obj.q - obj.dQ;
+            self.t0 = t0;
+            self.x = self.x0;
+            self.q = self.x0;
+            self.qlast = self.x0;
+            self.time = t0;
+            self.tlast = t0;
+            self.d = 0.0;
+            self.tnext = inf;            
+            self.khist = 1;
+            self.thist(1) = self.time; 
+            self.qhist(1) = self.q;       
+            
+        end
+        
+        function update(self, time)   
+            
+            self.time = time;            
+            self.trigger = 0;
+
+            self.dint();
+            self.quantize();
+            self.update_derivative(); 
+            self.ta();
+            
+            if self.q ~= self.qlast 
+                self.save_history();
+                self.dext();
+            end
+ 
+        end
+        
+        function quantize(self)  
+            
+            self.qlast = self.q;
+            
+            if self.x >= self.q + self.dQ - self.epsilon
+                self.q = self.q + self.dQ;
+            elseif self.x <= self.q - 0.5 * self.dQ + self.epsilon
+                self.q = self.q - self.dQ;
             end
             
         end
+        
+        function dint(self)
+            
+            self.x = self.x + self.d * (self.time - self.tlast);
+            self.tlast = self.time;
+            
+        end
 
-        function advance(obj, t)
+        function ta(self)
 
-           if (obj.d > 0)
-               dt = (obj.q + obj.dQ - obj.x) / obj.d;
-               obj.tnext = t + abs(dt);
-           elseif (obj.d < 0)
-               dt = (obj.q - 0.5 * obj.dQ - obj.x) / obj.d;
-               obj.tnext = t + abs(dt);
+           if (self.d > 0.0)
+               dt = (self.q + self.dQ - self.x) / self.d;
+               self.tnext = self.time + abs(dt);
+           elseif (self.d < 0.0)
+               dt = (self.q - 0.5 * self.dQ - self.x) / self.d;
+               self.tnext = self.time + abs(dt);
            else
-               obj.tnext = inf;
+               self.tnext = inf;
            end
             
         end
         
-        
-        function transition(obj, t)
-
-            dt = t - obj.tlast;
-            obj.tnext = t;
-            obj.x = obj.x + obj.d * dt;
-
+        function save_history(self) 
+            
+            if self.thist(self.khist) ~= self.time  % avoid dup. time points
+                self.khist = self.khist + 1;
+                self.thist(self.khist) = self.time;
+            end
+                
+            self.qhist(self.khist) = self.q; 
         end
         
     end  % end methods
     
     methods (Abstract)
 
-        update_derivative(obj);
+        update_derivative(self);
+        
+        dext(self);
 
     end
     

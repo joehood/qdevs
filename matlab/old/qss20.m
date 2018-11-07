@@ -433,14 +433,17 @@ while (t < tstop)
             thist2(k2) = t;
             qhist2(k2) = q2;
             k2 = k2 + 1;
+            
             x11 = dint(t, tlast11, x11, d11);
             tlast11 = t;
             d11 = f11(Rc, C, x1,x2, x11);
             tnext11 = ta(d11, x11, q11, dQ11, t);
+            
             x12 = dint(t, tlast12, x12, d12);
             tlast12 = t;
             d12 = f12(Rc, C,x2,x3,x12);
             tnext12 = ta(d12, x12, q12, dQ12, t);
+            
             t= min([tnext1,tnext2,tnext3,tnext4,tnext5,tnext6,tnext7,tnext8,tnext9,tnext10,tnext11,tnext12,tnext13,tnext14,tnext15,tnext16,tnext17,tnext18,tnext19,tnext20]);
      
         end
@@ -540,7 +543,8 @@ while (t < tstop)
             qlast6 = q6;
             thist6(k6) = t;
             qhist6(k6) = q6;
-            k6 = k6 + 1;          
+            k6 = k6 + 1;  
+            
             x15 = dint(t, tlast15, x15, d15);
             tlast15 = t;
             d15 = f15(Rc, C,x5,x6,x15);
@@ -965,7 +969,7 @@ plot(thist10, qhist10, 'g-');hold on;
 % plot(thist3, qhist3, 'b-');hold on;
 plot(thist20, qhist20, 'r-');
 % legend('QSS_Current_x1','QSS_Current_x2','QSS_Voltage_x3','QSS_Voltage_x4')
-legend('Matlab_Current_x10','Matlab_Voltage_x20','QSS_Current_x10','QSS_Voltage_x20')
+legend('Matlab Current x10','Matlab Voltage x20','QSS Current x10','QSS Voltage x20')
 
 
 
