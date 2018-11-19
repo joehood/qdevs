@@ -1,6 +1,6 @@
 
 
-classdef QssAtom < handle
+classdef LiqssAtom < handle
 
     properties
         
@@ -8,7 +8,10 @@ classdef QssAtom < handle
         x;       % internal state
         x0;      % internal state at system time = time0
         d;       % derivative
+        dlast;   % last derivative
         q;       % external (quantized) state
+        qhi;     % upper quantized state
+        qlo;     % lower quantized state
         qlast;   % ext state at last internal transition
         dQ;      % quantum
         epsilon; % hysteresis width
@@ -20,15 +23,19 @@ classdef QssAtom < handle
         khist;   % history array index
         time;    % simulation time
         trigger; % external update trigger
+        dtmin;   % minimum time advance
         
     end  
   
     methods
   
-        function self = QssAtom(name, x0)
+        function self = LiqssAtom(name, x0, dQ, epsilon)
             
             self.name = name;
             self.x0 = x0;
+            self.dQ = dQ;
+            self.epsilon = epsilon;
+            self.dtmin = 1e-12;
             
         end
         
@@ -38,9 +45,12 @@ classdef QssAtom < handle
             self.x = self.x0;
             self.q = self.x0;
             self.qlast = self.x0;
+            self.qhi = self.q + self.dQ;
+            self.qlo = self.q - self.dQ;
             self.time = t0;
             self.tlast = t0;
             self.d = 0.0;
+            self.dlast = 0.0;
             self.tnext = inf;            
             self.khist = 1;
             self.thist(1) = self.time; 
@@ -55,10 +65,11 @@ classdef QssAtom < handle
 
             self.dint();
             self.quantize();
-            self.update_derivative(); 
+            self.d = self.f(self.q);
             self.ta();
             
             if self.q ~= self.qlast 
+                self.qlast = self.q;
                 self.save_history();
                 self.dext();
             end
@@ -67,12 +78,41 @@ classdef QssAtom < handle
         
         function quantize(self)  
             
-            self.qlast = self.q;
+            %qhi = self.qhi;
+            %qlo = self.qlo;
+            %qlast = self.q;
             
-            if self.x >= self.q + self.dQ - self.epsilon
-                self.q = self.q + self.dQ;
-            elseif self.x <= self.q - 0.5 * self.dQ + self.epsilon
-                self.q = self.q - self.dQ;
+            self.dlast = self.d;
+            
+            change = 0;
+            
+            if self.x >= self.qhi
+                self.q = self.qhi;
+                self.qlo = self.qlo + self.dQ;
+                change = 1;
+            elseif self.x <= self.qlo
+                self.q = self.qlo;
+                self.qlo = self.qlo - self.dQ;
+                change = 1;
+            end
+            
+            self.qhi = self.qlo + 2 * self.dQ;
+            
+            if change  % we've ventured out of qlo/qhi bounds
+            
+                self.d = self.f(self.q);
+                
+                % if the derivative has changed signs, then we know 
+                % we are in a potential oscillating situation, so
+                % we will set the q such that the derivative=0:
+                
+                if self.d * self.dlast < 0  % if derivative has changed sign
+                    flo = self.f(self.qlo); 
+                    fhi = self.f(self.qhi);
+                    k = (2 * self.dQ) / (fhi - flo);
+                    self.q = self.qhi - k * fhi;
+                end
+                
             end
             
         end
@@ -86,15 +126,20 @@ classdef QssAtom < handle
 
         function ta(self)
 
-           if (self.d > 0.0)
-               dt = (self.q + self.dQ - self.x) / self.d;
-               self.tnext = self.time + abs(dt);
-           elseif (self.d < 0.0)
-               dt = (self.q - 0.5 * self.dQ - self.x) / self.d;
-               self.tnext = self.time + abs(dt);
-           else
-               self.tnext = inf;
-           end
+            % estimate the time to the next qhi/qlo crossing:
+            if (self.d > 0)
+                self.tnext = self.time + (self.qhi - self.x) / self.d;
+            elseif (self.d < 0)
+                self.tnext = self.time + (self.qlo - self.x) / self.d;
+            else
+                self.tnext = inf;
+            end
+            
+            % tnext from internal event shall not be 0:
+            self.tnext = max(self.tnext, self.tlast + self.dtmin);
+            
+            % also force an update at tstop if tnext > tstop:
+            %self.tnext = min(self.tnext, self.tstop);
             
         end
         
@@ -112,7 +157,7 @@ classdef QssAtom < handle
     
     methods (Abstract)
 
-        update_derivative(self);
+        d = f(self, q);
         
         dext(self);
 
