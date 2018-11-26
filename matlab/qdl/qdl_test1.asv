@@ -9,12 +9,12 @@ vg = QdlNode('vg', 0, 0, 0);
 vg.source_type = QdlSystem.SourcePWM;
 vg.V1 = 0.0;
 vg.V2 = 1.0;
-vg.freq = 10;
+vg.freq = 5;
 vg.duty = 0.5;
 
-v1 = QdlNode('v1', 0.1, .1, 0);
+v1 = QdlNode('v1', 0.1, .01, 0);
 
-b1 = QdlBranch('b1', vg, v1, 1, 1, 0);
+b1 = QdlBranch('b1', vg, v1, 1, 2, 0);
 
 sys.add_node(vg);
 sys.add_node(v1);
@@ -55,7 +55,7 @@ end
 ylabel('atom x');
 title(strcat('dq=', num2str(dq)));
 
-dq = 0.05;
+dq = 0.01;
 
 v1.dqmin = dq;
 v1.dqmax = dq;
