@@ -9,6 +9,9 @@ classdef QdlSystem < handle
         SourceSINE  = 2;
         SourcePWM   = 3;
         
+        DefaultNpoints = 1e6;
+        DefaultDtmin = 1e-12;
+        
     end
    
     properties
@@ -42,7 +45,7 @@ classdef QdlSystem < handle
         tlast  % last internal transition time of state (n)
         tnext  % next predicted internal transition (n)
         x      % internal states (n)
-        x0     % initial internal states (n)
+        X0     % initial internal states (n)
         trig   % trigger flags for external transition (n)
         iout   % output index for sparse output arrays (n)
         d      % state derivatives (n, 2)
@@ -95,12 +98,12 @@ classdef QdlSystem < handle
             self.def_dqmin = dqmin;
             self.def_dqmax = dqmax;
             self.def_dqerr = dqerr;
-            self.npt      = 1e6;  % hardcoded array size. Change if needed  
+            self.npt      = self.DefaultNpoints;   
             self.nnode    = 0;
             self.nbranch  = 0;    
             self.nodes    = QdlNode.empty(0);
             self.branches = QdlBranch.empty(0);            
-            self.dtmin    = 1e-12; % min step, hardcoded for now 
+            self.dtmin    = self.DefaultDtmin;
 
         end
         
@@ -124,7 +127,7 @@ classdef QdlSystem < handle
             self.T    = zeros(self.nbranch, self.nnode);
             self.Z    = zeros(self.nbranch, self.nbranch);
             
-            self.x0    = zeros(self.n, 1);
+            self.X0    = zeros(self.n, 1);
             self.dq    = zeros(self.n, 1);
             self.dqmin = zeros(self.n, 1);
             self.dqmax = zeros(self.n, 1);
@@ -148,7 +151,7 @@ classdef QdlSystem < handle
                 self.G(inode) = self.nodes(inode).G;
                 self.H(inode) = self.nodes(inode).H; 
                 
-                self.x0(inode) = self.nodes(inode).V0;
+                self.X0(inode) = self.nodes(inode).V0;
                 self.dqmin(inode) = self.nodes(inode).dqmin;
                 self.dqmax(inode) = self.nodes(inode).dqmax;
                 self.dqerr(inode) = self.nodes(inode).dqerr;
@@ -162,6 +165,18 @@ classdef QdlSystem < handle
                 self.period(inode)      = 1/self.nodes(inode).freq;
                 self.duty(inode)        = self.nodes(inode).duty;
                 self.phi(inode)         = self.nodes(inode).phi;
+                
+                % add entries to B matrix:
+                for ibnodes = 1:self.nodes(inode).nbnode
+                    self.B(inode, self.nodes(inode).bnodes(ibnodes).index) ...
+                        = self.nodes(inode).B(ibnodes);
+                end
+                
+                % add entries to S matrix:
+                for isbranch = 1:self.nodes(inode).nsbranch
+                    self.S(inode, self.nodes(inode).sbranches(isbranch).index) ...
+                        = self.nodes(inode).S(isbranch);
+                end
 
             end 
             
@@ -171,6 +186,65 @@ classdef QdlSystem < handle
                 
                 self.A(self.branches(ibranch).inode.index, ibranch) = 1; 
                 self.A(self.branches(ibranch).jnode.index, ibranch) = -1; 
+ 
+                self.Linv(ibranch) = 1 / self.branches(ibranch).L;
+                self.R(ibranch) = self.branches(ibranch).R;
+                self.E(ibranch) = self.branches(ibranch).E;
+                
+                self.X0(iatom) = self.branches(ibranch).I0;
+                self.dqmin(iatom) = self.branches(ibranch).dqmin;
+                self.dqmax(iatom) = self.branches(ibranch).dqmax;
+                self.dqerr(iatom) = self.branches(ibranch).dqerr;
+                
+                self.source_type(iatom) = self.branches(ibranch).source_type;
+                self.Xdc(iatom)         = self.branches(ibranch).Idc;
+                self.Xa(iatom)          = self.branches(ibranch).Ia;
+                self.X1(iatom)          = self.branches(ibranch).I1;
+                self.X2(iatom)          = self.branches(ibranch).I2;
+                self.freq(iatom)        = self.branches(ibranch).freq;
+                self.period(iatom)      = 1/self.branches(ibranch).freq;
+                self.duty(iatom)        = self.branches(ibranch).duty;
+                self.phi(iatom)         = self.branches(ibranch).phi;
+
+                % add entries to T matrix:
+                for itnodes = 1:self.branches(ibranch).ntnode
+                    self.T(iatom, self.branches(ibranch).tnodes(itnodes).index) ...
+                        = self.branches(ibranch).T(itnodes);
+                end
+                
+                % add entries to Z matrix:
+                for izbranch = 1:self.branches(ibranch).nzbranch
+                    self.Z(iatom, self.branches(ibranch).zbranches(izbranch).index) ...
+                        = self.branches(ibranch).Z(izbranch);
+                end
+                
+            end
+            
+        end
+        
+        function build_trigger_map(self)
+            
+            for inode = 1:self.nnode
+                
+                % add connections from to B nodes:
+                for ibnodes = 1:self.nodes(inode).nbnode
+                    if self.nodes(inode).bnodes(ibnodes).source_type == self.SourceNone
+                        self.M(self.nodes(inode).bnodes(ibnodes).index, self.nodes(inode).index) = 1;
+                    end
+                end
+                
+                % add connections from to S branches:
+                for isbranch = 1:self.nodes(inode).nsbranch
+                    if self.nodes(inode).sbranches(isbranch).source_type == self.SourceNone
+                        self.M(self.nodes(inode).sbranches(isbranch).index, self.nodes(inode).index) = 1;
+                    end
+                end
+                
+            end
+            
+            for ibranch = 1:self.nbranch
+                
+                iatom = self.nnode + ibranch;
                 
                 if self.branches(ibranch).inode.source_type == self.SourceNone
                     self.M(iatom, self.branches(ibranch).inode.index) = 1;
@@ -185,25 +259,20 @@ classdef QdlSystem < handle
                     self.M(self.branches(ibranch).jnode.index, iatom) = 1;
                 end
                 
-                self.Linv(ibranch) = 1 / self.branches(ibranch).L;
-                self.R(ibranch) = self.branches(ibranch).R;
-                self.E(ibranch) = self.branches(ibranch).E;
+                % add connections from T nodes:
+                for itnodes = 1:self.branches(ibranch).ntnode
+                    if self.branches(ibranch).bnodes(itnodes).source_type == self.SourceNone
+                        self.M(self.branches(ibranch).tnodes(itnodes).index, self.branches(ibranch).index) = 1;
+                    end
+                end
                 
-                self.x0(iatom) = self.branches(ibranch).I0;
-                self.dqmin(iatom) = self.branches(ibranch).dqmin;
-                self.dqmax(iatom) = self.branches(ibranch).dqmax;
-                self.dqerr(iatom) = self.branches(ibranch).dqerr;
+                % add connections from Z branches:
+                for izbranch = 1:self.branches(ibranch).nzbranch
+                    if self.branches(ibranch).zbranches(izbranch).source_type == self.SourceNone
+                        self.M(self.branches(ibranch).zbranches(izbranch).index, self.branches(ibranch).index) = 1;
+                    end
+                end
                 
-                self.source_type(iatom) = self.branches(ibranch).source_type;
-                self.Xdc(iatom)         = self.branches(ibranch).Idc;
-                self.Xa(iatom)          = self.branches(ibranch).Ia;
-                self.X1(iatom)          = self.branches(ibranch).I1;
-                self.X2(iatom)          = self.branches(ibranch).I2;
-                self.freq(inode)        = self.branches(ibranch).freq;
-                self.period(inode)      = 1/self.branches(ibranch).freq;
-                self.duty(inode)        = self.branches(ibranch).duty;
-                self.phi(inode)         = self.branches(ibranch).phi;
-
             end
             
         end
@@ -253,6 +322,8 @@ classdef QdlSystem < handle
         function init(self)
             
             self.build_lim();
+            
+            self.build_trigger_map();
 
             self.time = 0.0;
             
@@ -273,9 +344,9 @@ classdef QdlSystem < handle
             self.dq(:)    =  self.dqmin(:);
             self.qhi(:)   =  self.dq(:); 
             self.qlo(:)   = -self.dq(:);
-            self.x(:)     =  self.x0(:);
-            self.q(:, 1)  =  self.x0(:);
-            self.q(:, 2)  =  self.x0(:);
+            self.x(:)     =  self.X0(:);
+            self.q(:, 1)  =  self.X0(:);
+            self.q(:, 2)  =  self.X0(:);
 
             % output data arrays:
             
@@ -561,8 +632,10 @@ classdef QdlSystem < handle
 
                     isum = self.A(iatom, :) * self.q(self.nnode+1:end, 2);
 
-                    d = self.Cinv(iatom) * (self.H(iatom) + self.S(iatom,:) * self.x(self.nnode+1:end) ...
-                        - qval * self.G(iatom) - isum);
+                    % d = 1/C * [ H + B * qnode + S * qbranch - q * G - isum ] 
+                    
+                    d = self.Cinv(iatom) * (self.H(iatom) + self.B(iatom,:) * self.q(1:self.nnode, 2) ...
+                        + self.S(iatom,:) * self.q(self.nnode+1:end, 2) - qval * self.G(iatom) - isum);
 
                 else  % branch
 
@@ -571,9 +644,11 @@ classdef QdlSystem < handle
                     ibranch = iatom-self.nnode;
 
                     vij = self.A(:, ibranch)' * self.q(1:self.nnode, 2);
+                    
+                    % d = 1/L * [ E + T * qnode + Z * qbranch - q * R - vij ] 
 
                     d = self.Linv(ibranch) * (self.E(ibranch) + self.T(ibranch,:) * self.x(1:self.nnode) ...
-                        - qval * self.R(ibranch) + vij);
+                        + self.Z(ibranch,:) * self.q(self.nnode+1:end, 2) - qval * self.R(ibranch) + vij);
 
                 end
                 
@@ -650,7 +725,7 @@ classdef QdlSystem < handle
             
         end
         
-        function [q, tnext] = update_sine(x0, xa, f, phi, t, dq)
+        function [q, tnext] = update_sine(X0, xa, f, phi, t, dq)
 
             T = 1/f;    
             w = mod(t, T);
@@ -669,7 +744,7 @@ classdef QdlSystem < handle
                 tnext = t0 + T + (asin(min(0, (x + dq)/xa))) / omega;
             end
 
-            q = x0 + xa * sin(2*pi*f*t + phi);
+            q = X0 + xa * sin(2*pi*f*t + phi);
 
         end
         

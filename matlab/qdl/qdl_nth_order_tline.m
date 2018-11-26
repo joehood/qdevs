@@ -18,7 +18,6 @@ nodes(1).source_type = QdlSystem.SourceDC;
 nodes(1).Vdc = 10.0;
 end   
 
-
 % pwm:
 if 0
 nodes(1).source_type = QdlSystem.SourcePWM;

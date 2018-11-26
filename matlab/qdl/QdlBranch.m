@@ -13,6 +13,8 @@ classdef QdlBranch < QdlDevice
         Z
         tnodes
         zbranches
+        ntnode
+        nzbranch
         I0
         Idc
         Ia
@@ -38,6 +40,8 @@ classdef QdlBranch < QdlDevice
             self.Z = double.empty(0);
             self.tnodes = double.empty(0);
             self.zbranches = double.empty(0);
+            self.ntnode = 0;
+            self.nzbranch = 0;
             
             self.source_type = QdlSystem.SourceNone;
             self.I0 = 0;
@@ -46,6 +50,22 @@ classdef QdlBranch < QdlDevice
             self.I1 = 0;
             self.I2 = 0;
 
+        end
+        
+        function add_tnode(self, gain, node)
+            
+            self.ntnode = self.ntnode + 1;
+            self.T(self.ntnode) = gain;
+            self.tnodes(self.ntnode) = node;
+            
+        end
+        
+        function add_zbranch(self, gain, branch)
+            
+            self.nzbranch = self.nzbranch + 1;
+            self.Z(self.nzbranch) = gain;
+            self.zbranches(self.nzbranch) = branch;
+            
         end
     
     end

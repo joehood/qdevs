@@ -1,25 +1,27 @@
 clear variables
 
-dqmin = 0.00001;
-dqmax = 0.001;
-maxerr = 0.01;
+dqmin = 0.01;
+dqmax = 0.01;
+dqerr = 0.01;
 
-npt = 1e5;
-
-%sys.add_node(i, C, G, H, p, B, q, S, dqmin, dqmax, maxerr);
-%sys.add_branch(k, i, j, L, R, E, p, T, q, Z, dqmin, dqmax, maxerr);
-
-n = 10;
-
-% source branch:
-
-sys = QdlSystem(n*n, n*n*2, npt);
+sys = QdlSystem(dqmin, dqmax, dqerr);
 
 L = 0.1;
 R = 1.0;
 C = 0.1;
 G = 1.0;
 H = 1.0;
+
+nodes = QdlNode.empty(0);
+branches = QdlBranch.empty(0);
+kn = 0;
+kb = 0;
+
+n = 4;
+
+kn = kn + 1;
+nodes(kn) = QdlNode('', C, G, 0.0);
+sys.add_node(nodes(kn));
 
 for i = 1:n
 
@@ -43,9 +45,17 @@ for i = 1:n
             end
         end
         
-        sys.add_node(i*j, C, G, 0.0, 0, 0.0, 0, 0.0, dqmin, dqmax, maxerr);      
-        sys.add_branch(i*j, i+j, i+j-1, L, R, 0.0, 0, 0.0, 0, 0.0, dqmin, dqmax, maxerr);
-        sys.add_branch(i*j*2, i+j-1, i+j, L, R, 0.0, 0, 0.0, 0, 0.0, dqmin, dqmax, maxerr);
+        kn = kn + 1;
+        nodes(kn) = QdlNode('', C, G, 0.0);
+        sys.add_node(nodes(kn));
+        
+        kb = kb + 1;
+        branches(kb) = QdlBranch('', nodes(i+j), nodes(i+j-1), L, R, 0.0);
+        sys.add_branch(branches(kb));
+        
+        kb = kb + 1;
+        branches(kb) = QdlBranch('', nodes(i+j-1), nodes(i+j), L, R, 0.0);
+        sys.add_branch(branches(kb));
 
     end
  
@@ -54,15 +64,16 @@ end
 sys.init();
 sys.runto(100);
 sys.E(1) = 1.0;
-sys.runto(5000);
+sys.runto(500);
 sys.E(1) = 2.0;
-sys.runto(10000);
+sys.runto(1000);
 
 for k = 1:10:n*n+n*n*2
     plot(sys.tout(k,1:sys.iout(k)), sys.qout(k,1:sys.iout(k)), 'b.-'); hold on;
 end
 
 figure;
+
 for k = 1:10:n*n+n*n*2
     plot(sys.tupd(k, 1:sys.iupd(k)), cumsum(sys.nupd(k, 1:sys.iupd(k)))); hold on;
 end

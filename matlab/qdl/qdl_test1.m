@@ -1,6 +1,6 @@
 clear variables
 
-dq = 0.0001;
+dq = 0.001;
 
 sys = QdlSystem(dq, dq, 0.001);
 
@@ -32,6 +32,7 @@ subplot(3, 1, 1);
 for k=2:sys.n
     plot(sys.tout(k,1:sys.iout(k)), sys.qout(k,1:sys.iout(k))); hold on;
 end
+
 ylabel('atom x');
 title(strcat('dq=', num2str(dq)));
 
