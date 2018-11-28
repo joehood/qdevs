@@ -21,19 +21,19 @@ BL = 0.1;
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
 
-vs = QdlNode('terminal', Clim, Gs, Vs*Gs);
+vs = QdlNode('terminal voltage (V)', Clim, Gs, Vs*Gs);
 vs.source_type = QdlSystem.SourceDC;
 vs.vdc = 10.0;
 
-vm = QdlNode('rotor', Jm, Bm, 0);
-vl = QdlNode('load', JL, BL, TL);
+vm = QdlNode('rotor speed (rad/s)', Jm, Bm, 0);
+vl = QdlNode('load speed (rad/s)', JL, BL, TL);
 
 vg = QdlNode('ground', 0, 0, 0);
 vg.source_type = QdlSystem.SourceDC;
 vg.vdc = 0;
 
-ba = QdlBranch('armature', La, Ra, 0);
-bs = QdlBranch('shaft', Jp, Fp, 0);
+ba = QdlBranch('armature current (A)', La, Ra, 0);
+bs = QdlBranch('shaft torque (N.m)', Jp, Fp, 0);
 
 ba.connect(vs, vg);
 bs.connect(vm, vl);
@@ -60,20 +60,22 @@ c = 2;
 nbins = 1000;
 ymax = 100;
 
+dots = 0;
+
 subplot(r, c, 1);
-sys.plot(vs, 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(vs, dots, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(r, c, 2);
-sys.plot(ba, 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(ba, dots, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(r, c, 3);
-sys.plot(vm, 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(vm, dots, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(r, c, 4);
-sys.plot(bs, 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(bs, dots, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(r, c, 5);
-sys.plot(vl, 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(vl, dots, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 
 

@@ -804,7 +804,7 @@ classdef QdlSystem < handle
             
             if ss
                 plot(tss, xss, 'c--', ...
-                    'DisplayName','ss'); hold on;
+                    'DisplayName','qss'); hold on;
             end
             
             if dots
@@ -814,9 +814,7 @@ classdef QdlSystem < handle
             end
             
             if lines
-                plot(self.tout(k,1:self.iout(k)), ...
-                    self.qout(k,1:self.iout(k)), 'b-', ...
-                    'DisplayName', 'qss (zoh)'); hold on;
+                plot(self.tout(k,1:self.iout(k)), self.qout(k,1:self.iout(k)), 'b-'); hold on;
             end
 
             ylabel('atom state');
@@ -824,14 +822,10 @@ classdef QdlSystem < handle
             if upd
                 yyaxis right
                 
-                updstr = strcat('updates per: ', num2str(self.time/bins), ' s');
-                
                 if cumm_upd
-                    plot(self.tupd(k,1:2:self.iupd(k)), cumsum(self.nupd(k,1:2:self.iupd(k)))/2, 'r-',...
-                        'DisplayName', 'updates');
+                    plot(self.tupd(k,1:2:self.iupd(k)), cumsum(self.nupd(k,1:2:self.iupd(k)))/2, 'r-');
                 else
-                    histogram(self.tupd(k,1:2:self.iupd(k)), bins, 'EdgeColor', 'none', 'FaceAlpha', 0.3, ...
-                        'DisplayName', updstr);
+                    histogram(self.tupd(k,1:2:self.iupd(k)), bins, 'EdgeColor', 'none', 'FaceAlpha', 0.3);
                 end
                 title(atom.name);
                 ylabel('updates');
@@ -843,9 +837,32 @@ classdef QdlSystem < handle
             xlim([-1.0, self.time]);
             
             loc = 'southeast';
+            
+            updstr = strcat('updates per', {' '}, num2str(self.time/bins), ' s');
 
-            leg = legend();
-            leg.Location = loc;
+            if ss
+                if lines
+                    if dots
+                        legend('ss', 'qss', 'qss (zoh)', updstr, 'location', loc);
+                    else
+                        legend('ss', 'qss (zoh)', updstr, 'location', loc);
+                    end
+                else
+                    if dots
+                        legend('ss', 'qss', updstr, 'location', loc);
+                    else
+                        legend('ss', updstr, 'location', loc);
+                    end
+                end
+            else
+                if lines
+                    if dots
+                        legend('qss', 'qss (zoh)', updstr, 'location', loc);
+                    else
+                        legend('qss (zoh)', updstr, 'location', loc);
+                    end
+                end
+            end
             
             if xlbl
                xlabel('t (s)');
