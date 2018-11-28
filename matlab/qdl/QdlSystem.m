@@ -774,12 +774,12 @@ classdef QdlSystem < handle
             
             U = [self.H; self.E];
             
-            t = 0:dt:self.tstop;
+            t = self.time:dt:tstop;
             npt = length(t);
             
             x = zeros(self.n, npt);
             
-            x(:, 1) = self.x0;
+            x(:, 1) = self.x;
             
             Apr = inv(eye(n)-dt*A);
             Bpr = Apr*B*dt;
@@ -792,25 +792,29 @@ classdef QdlSystem < handle
             
         end
         
-        function plot(self, atom, dots, upd, cumm_upd, bins, xlbl, tss, xss, ymax)
+        function plot(self, atom, dots, lines, upd, cumm_upd, bins, xlbl, tss, xss, ymax)
             
             k = atom.index;
+            
+            ss = length(tss) > 1;
             
             if upd
                 yyaxis left
             end
             
-            if length(tss) > 1
-                plot(tss, xss, 'm--'); hold on;
+            if ss
+                plot(tss, xss, 'c--'); hold on;
             end
             
-            plot(self.tout(k,1:self.iout(k)), self.qout(k,1:self.iout(k)), 'b-'); hold on;
+            if lines
+                plot(self.tout(k,1:self.iout(k)), self.qout(k,1:self.iout(k)), 'b-'); hold on;
+            end
             
             if dots
                 plot(self.tout(k,1:2:self.iout(k)), self.qout(k,1:2:self.iout(k)), 'k.');
             end
             
-            ylabel('q');
+            ylabel('atom state');
             
             if upd
                 yyaxis right
@@ -821,13 +825,39 @@ classdef QdlSystem < handle
                     histogram(self.tupd(k,1:2:self.iupd(k)), bins, 'EdgeColor', 'none', 'FaceAlpha', 0.3);
                 end
                 title(atom.name);
-                ylabel('updates');
+                ylabel(strcat('updates per', {' '}, num2str(self.time/bins), ' s'));
                 if ymax > 0
                     ylim([0, ymax]);
                 end
             end
             
             xlim([-1.0, self.time]);
+            
+            loc = 'southeast';
+
+            if ss
+                if lines
+                    if dots
+                        legend('ss', 'qss', 'qss (zoh)', 'location', loc);
+                    else
+                        legend('ss', 'qss (zoh)', 'location', loc);
+                    end
+                else
+                    if dots
+                        legend('ss', 'qss', 'location', loc);
+                    else
+                        legend('ss', 'location', loc);
+                    end
+                end
+            else
+                if lines
+                    if dots
+                        legend('qss', 'qss (zoh)', 'location', loc);
+                    else
+                        legend('qss (zoh)', 'location', loc);
+                    end
+                end
+            end
             
             if xlbl
                xlabel('t (s)');

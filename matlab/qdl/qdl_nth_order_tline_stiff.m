@@ -69,11 +69,11 @@ figure;
 
 for k=1:length(nodes)
     subplot(length(nodes), 2, k*2-1);
-    sys.plot(nodes(k), 0, 1, 0, 500, 0);
+    sys.plot(nodes(k), 1, 1, 1, 0, 500, 0, 0, 0, 0);
 end
 
 for k=1:length(branches)
     subplot(length(nodes), 2, k*2);   
-    sys.plot(branches(k), 0, 1, 0, 500, 0);
+    sys.plot(branches(k), 1, 1, 1, 0, 500, 0, 0, 0, 0);
 end
 
