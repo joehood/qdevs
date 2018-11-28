@@ -6,6 +6,7 @@ classdef QdlBranch < QdlDevice
         
         inode
         jnode
+        bindex
         L
         R
         E
@@ -15,44 +16,49 @@ classdef QdlBranch < QdlDevice
         zbranches
         ntnode
         nzbranch
-        I0
-        Idc
-        Ia
-        I1
-        I2
+        i0
+        idc
+        ia
+        i1
+        i2
         source_type
         
     end
     
     methods
         
-        function self = QdlBranch(name, inode, jnode, L, R, E)
+        function self = QdlBranch(name, L, R, E)
             
             self@QdlDevice(name);
-            
-            self.inode = inode;
-            self.jnode = jnode;
+
             self.L = L;
             self.R = R;
             self.E = E;
             
             self.T = double.empty(0);
             self.Z = double.empty(0);
-            self.tnodes = double.empty(0);
-            self.zbranches = double.empty(0);
+            self.tnodes = QdlNode.empty(0);
+            self.zbranches = QdlBranch.empty(0);
             self.ntnode = 0;
             self.nzbranch = 0;
             
             self.source_type = QdlSystem.SourceNone;
-            self.I0 = 0;
-            self.Idc = 0;
-            self.Ia = 0;
-            self.I1 = 0;
-            self.I2 = 0;
+            self.i0 = 0;
+            self.idc = 0;
+            self.ia = 0;
+            self.i1 = 0;
+            self.i2 = 0;
 
         end
         
-        function add_tnode(self, gain, node)
+        function connect(self, inode, jnode)
+            
+            self.inode = inode;
+            self.jnode = jnode;
+            
+        end
+        
+        function add_tnode(self, node, gain)
             
             self.ntnode = self.ntnode + 1;
             self.T(self.ntnode) = gain;
@@ -60,7 +66,7 @@ classdef QdlBranch < QdlDevice
             
         end
         
-        function add_zbranch(self, gain, branch)
+        function add_zbranch(self, branch, gain)
             
             self.nzbranch = self.nzbranch + 1;
             self.Z(self.nzbranch) = gain;

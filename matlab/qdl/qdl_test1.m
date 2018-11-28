@@ -7,14 +7,16 @@ sys = QdlSystem(dq, dq, 0.001);
 vg = QdlNode('vg', 0, 0, 0);
 
 vg.source_type = QdlSystem.SourcePWM;
-vg.V1 = 0.0;
-vg.V2 = 1.0;
+vg.v1 = 0.0;
+vg.v2 = 1.0;
 vg.freq = 10;
 vg.duty = 0.5;
 
 v1 = QdlNode('v1', 0.1, .1, 0);
 
-b1 = QdlBranch('b1', vg, v1, 1, 1, 0);
+b1 = QdlBranch('b1', 1, 1, 0);
+
+b1.connect(vg, v1);
 
 sys.add_node(vg);
 sys.add_node(v1);
@@ -22,7 +24,7 @@ sys.add_branch(b1);
 
 sys.init();
 sys.runto(1);
-sys.Xdc(1) = 1;
+sys.xdc(1) = 1;
 sys.runto(10);
 
 figure;
@@ -45,7 +47,7 @@ b1.dqmax = dq;
 
 sys.init();
 sys.runto(1);
-sys.Xdc(1) = 1;
+sys.xdc(1) = 1;
 sys.runto(10);
 
 subplot(3, 1, 2);
@@ -65,7 +67,7 @@ b1.dqmax = dq;
 
 sys.init();
 sys.runto(1);
-sys.Xdc(1) = 1;
+sys.xdc(1) = 1;
 sys.runto(10);
 
 subplot(3, 1, 3);

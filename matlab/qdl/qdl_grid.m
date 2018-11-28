@@ -50,11 +50,13 @@ for i = 1:n
         sys.add_node(nodes(kn));
         
         kb = kb + 1;
-        branches(kb) = QdlBranch('', nodes(i+j), nodes(i+j-1), L, R, 0.0);
+        branches(kb) = QdlBranch('', L, R, 0.0);
+        branches(kb).connect(nodes(i+j), nodes(i+j-1));
         sys.add_branch(branches(kb));
         
         kb = kb + 1;
-        branches(kb) = QdlBranch('', nodes(i+j-1), nodes(i+j), L, R, 0.0);
+        branches(kb) = QdlBranch('', L, R, 0.0);
+        branches(kb).connect(nodes(i+j-1), nodes(i+j));
         sys.add_branch(branches(kb));
 
     end

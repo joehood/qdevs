@@ -45,7 +45,7 @@ classdef QdlSystem < handle
         tlast  % last internal transition time of state (n)
         tnext  % next predicted internal transition (n)
         x      % internal states (n)
-        X0     % initial internal states (n)
+        x0     % initial internal states (n)
         trig   % trigger flags for external transition (n)
         iout   % output index for sparse output arrays (n)
         d      % state derivatives (n, 2)
@@ -80,14 +80,16 @@ classdef QdlSystem < handle
 
         % source stimulus params
         source_type % value from above source type enum values (n)
-        Xdc         % offset value (n)
-        Xa          % sine amplitude (n)
-        X1          % pwm first value (n)
-        X2          % pwm second value (n)
+        xdc         % offset value (n)
+        xa          % sine amplitude (n)
+        x1          % pwm first value (n)
+        x2          % pwm second value (n)
         freq        % sine wave freqnecy or pwm switching freqency (Hz) (n)
         duty        % pwm duty cycle (pu) (n)
         phi         % sine wave phase (rad) (n)
         period      % cached 1/f (s)
+        
+        timer
 
     end
     
@@ -127,16 +129,16 @@ classdef QdlSystem < handle
             self.T    = zeros(self.nbranch, self.nnode);
             self.Z    = zeros(self.nbranch, self.nbranch);
             
-            self.X0    = zeros(self.n, 1);
+            self.x0    = zeros(self.n, 1);
             self.dq    = zeros(self.n, 1);
             self.dqmin = zeros(self.n, 1);
             self.dqmax = zeros(self.n, 1);
             self.dqerr = zeros(self.n, 1);
             
-            self.Xdc = zeros(self.n, 1);
-            self.Xa  = zeros(self.n, 1);
-            self.X1  = zeros(self.n, 1);
-            self.X2  = zeros(self.n, 1);
+            self.xdc = zeros(self.n, 1);
+            self.xa  = zeros(self.n, 1);
+            self.x1  = zeros(self.n, 1);
+            self.x2  = zeros(self.n, 1);
 
             self.source_type = zeros(self.n, 1);
             self.source_type = zeros(self.n, 1);
@@ -151,16 +153,16 @@ classdef QdlSystem < handle
                 self.G(inode) = self.nodes(inode).G;
                 self.H(inode) = self.nodes(inode).H; 
                 
-                self.X0(inode) = self.nodes(inode).V0;
+                self.x0(inode) = self.nodes(inode).v0;
                 self.dqmin(inode) = self.nodes(inode).dqmin;
                 self.dqmax(inode) = self.nodes(inode).dqmax;
                 self.dqerr(inode) = self.nodes(inode).dqerr;
                 
                 self.source_type(inode) = self.nodes(inode).source_type;
-                self.Xdc(inode)         = self.nodes(inode).Vdc;
-                self.Xa(inode)          = self.nodes(inode).Va;
-                self.X1(inode)          = self.nodes(inode).V1;
-                self.X2(inode)          = self.nodes(inode).V2;
+                self.xdc(inode)         = self.nodes(inode).vdc;
+                self.xa(inode)          = self.nodes(inode).va;
+                self.x1(inode)          = self.nodes(inode).v1;
+                self.x2(inode)          = self.nodes(inode).v2;
                 self.freq(inode)        = self.nodes(inode).freq;
                 self.period(inode)      = 1/self.nodes(inode).freq;
                 self.duty(inode)        = self.nodes(inode).duty;
@@ -174,7 +176,7 @@ classdef QdlSystem < handle
                 
                 % add entries to S matrix:
                 for isbranch = 1:self.nodes(inode).nsbranch
-                    self.S(inode, self.nodes(inode).sbranches(isbranch).index) ...
+                    self.S(inode, self.nodes(inode).sbranches(isbranch).bindex) ...
                         = self.nodes(inode).S(isbranch);
                 end
 
@@ -191,16 +193,16 @@ classdef QdlSystem < handle
                 self.R(ibranch) = self.branches(ibranch).R;
                 self.E(ibranch) = self.branches(ibranch).E;
                 
-                self.X0(iatom) = self.branches(ibranch).I0;
+                self.x0(iatom) = self.branches(ibranch).i0;
                 self.dqmin(iatom) = self.branches(ibranch).dqmin;
                 self.dqmax(iatom) = self.branches(ibranch).dqmax;
                 self.dqerr(iatom) = self.branches(ibranch).dqerr;
                 
                 self.source_type(iatom) = self.branches(ibranch).source_type;
-                self.Xdc(iatom)         = self.branches(ibranch).Idc;
-                self.Xa(iatom)          = self.branches(ibranch).Ia;
-                self.X1(iatom)          = self.branches(ibranch).I1;
-                self.X2(iatom)          = self.branches(ibranch).I2;
+                self.xdc(iatom)         = self.branches(ibranch).idc;
+                self.xa(iatom)          = self.branches(ibranch).ia;
+                self.x1(iatom)          = self.branches(ibranch).i1;
+                self.x2(iatom)          = self.branches(ibranch).i2;
                 self.freq(iatom)        = self.branches(ibranch).freq;
                 self.period(iatom)      = 1/self.branches(ibranch).freq;
                 self.duty(iatom)        = self.branches(ibranch).duty;
@@ -208,13 +210,13 @@ classdef QdlSystem < handle
 
                 % add entries to T matrix:
                 for itnodes = 1:self.branches(ibranch).ntnode
-                    self.T(iatom, self.branches(ibranch).tnodes(itnodes).index) ...
+                    self.T(ibranch, self.branches(ibranch).tnodes(itnodes).index) ...
                         = self.branches(ibranch).T(itnodes);
                 end
                 
                 % add entries to Z matrix:
                 for izbranch = 1:self.branches(ibranch).nzbranch
-                    self.Z(iatom, self.branches(ibranch).zbranches(izbranch).index) ...
+                    self.Z(ibranch, self.branches(ibranch).zbranches(izbranch).bindex) ...
                         = self.branches(ibranch).Z(izbranch);
                 end
                 
@@ -222,7 +224,7 @@ classdef QdlSystem < handle
             
         end
         
-        function build_trigger_map(self)
+        function build_map(self)
             
             for inode = 1:self.nnode
                 
@@ -261,7 +263,7 @@ classdef QdlSystem < handle
                 
                 % add connections from T nodes:
                 for itnodes = 1:self.branches(ibranch).ntnode
-                    if self.branches(ibranch).bnodes(itnodes).source_type == self.SourceNone
+                    if self.branches(ibranch).tnodes(itnodes).source_type == self.SourceNone
                         self.M(self.branches(ibranch).tnodes(itnodes).index, self.branches(ibranch).index) = 1;
                     end
                 end
@@ -277,7 +279,7 @@ classdef QdlSystem < handle
             
         end
     
-        function index = add_node(self, node)
+        function add_node(self, node)
 
             if node.dqmin <= 0
                 node.dqmin = self.def_dqmin;
@@ -294,11 +296,16 @@ classdef QdlSystem < handle
             self.nnode = self.nnode + 1;
             node.index = self.nnode;
             self.nodes(self.nnode) = node;
-            index = self.nnode;
+            
+            % increment branch indeces as these are offest by the nodes:
+            
+            for kbranch = 1:self.nbranch
+                self.branches(kbranch).index = self.branches(kbranch).index + 1;
+            end
 
         end
         
-        function index = add_branch(self, branch)
+        function add_branch(self, branch)
             
             if branch.dqmin <= 0
                 branch.dqmin = self.def_dqmin;
@@ -313,9 +320,9 @@ classdef QdlSystem < handle
             end
             
             self.nbranch = self.nbranch + 1;
-            branch.index = self.nbranch;
+            branch.bindex = self.nbranch; % not offset by nnode
+            branch.index = self.nbranch + self.nnode;  % offest by nnode
             self.branches(self.nbranch) = branch;
-            index = self.nbranch;
             
         end
               
@@ -323,7 +330,7 @@ classdef QdlSystem < handle
             
             self.build_lim();
             
-            self.build_trigger_map();
+            self.build_map();
 
             self.time = 0.0;
             
@@ -344,9 +351,9 @@ classdef QdlSystem < handle
             self.dq(:)    =  self.dqmin(:);
             self.qhi(:)   =  self.dq(:); 
             self.qlo(:)   = -self.dq(:);
-            self.x(:)     =  self.X0(:);
-            self.q(:, 1)  =  self.X0(:);
-            self.q(:, 2)  =  self.X0(:);
+            self.x(:)     =  self.x0(:);
+            self.q(:, 1)  =  self.x0(:);
+            self.q(:, 2)  =  self.x0(:);
 
             % output data arrays:
             
@@ -371,30 +378,50 @@ classdef QdlSystem < handle
             % force initial update and save for this run period:
             
             for iatom = 1:self.n
-                self.update(iatom);
+                self.internal_update(iatom);
                 self.save(iatom);
             end 
             
             % now update intially externally triggered atoms:
             
-            for iatom = 1:self.n
-               if self.trig(iatom)
-                   self.update(iatom);
-               end
-            end 
+            while any(self.trig)
+                for iatom = 1:self.n
+                   if self.trig(iatom)
+                       self.internal_update(iatom);
+                   end
+                end 
+            end
             
             % now advance the simulation until we reach tstop:
             
+            %self.timer = timer();
+            %self.timer.ExecutionMode = 'fixedRate';
+            %self.timer.Period = 1;
+            
+            %self.timer.TimerFcn = {@(~,~,obj, x) disp(['sim time: ' ...
+            %    num2str(round(obj.time)) ' of ' x]), self, num2str(tstop)};
+            
+            %start(self.timer);
+            
+            tdisp = 0;
+            tint = 10;
+            
             while self.time < self.tstop
-                self.advance();      
+                self.advance();   
+                if self.time - tdisp > tint
+                    disp(['sim time = ' num2str(round(self.time))]);
+                    tdisp = self.time;
+                end
             end
+            
+            %stop(self.timer);
             
             % force final update and save for this run period:
             
             self.time = self.tstop;
             
             for iatom = 1:self.n
-                self.update(iatom);
+                self.internal_update(iatom);
                 self.save(iatom);
             end 
         end
@@ -414,21 +441,23 @@ classdef QdlSystem < handle
 
             for iatom = 1:self.n
                 if self.tnext(iatom) <= self.time || force
-                   self.update(iatom);
+                   self.internal_update(iatom);
                 end
             end  
             
             % now update externally triggered atoms:
             
-            for iatom = 1:self.n
-                if self.trig(iatom)
-                   self.update(iatom);
-                end
-            end  
+            while any(self.trig)
+                for iatom = 1:self.n
+                    if self.trig(iatom)
+                       self.internal_update(iatom);
+                    end
+                end 
+            end
 
         end
         
-        function update(self, iatom)   
+        function internal_update(self, iatom)   
             
             self.trig(iatom) = 0;  % reset trigger flag
             
@@ -442,10 +471,30 @@ classdef QdlSystem < handle
             if self.q(iatom, 2) ~= self.q(iatom, 1)
                 self.save(iatom); % save output 
                 self.q(iatom, 1) = self.q(iatom, 2);  % save last q
-                self.dext(iatom); % set trigger flags
+                self.trigger(iatom); % set trigger flags
                 self.update_dq(iatom);
             end
  
+        end
+        
+        function external_update(self, iatom)
+           
+            self.trig(iatom) = 0;  % reset trigger flag
+            
+            self.dext(iatom);      % update internal state
+            self.quantize(iatom);  % quantize internal state
+            self.d(iatom, 2) = self.f(iatom, self.q(iatom, 2));  % update derivative 
+            self.ta(iatom);        % calculate new tnext
+
+            % trigger external update if quatized output changed:
+            
+            if self.q(iatom, 2) ~= self.q(iatom, 1)
+                self.save(iatom); % save output 
+                self.q(iatom, 1) = self.q(iatom, 2);  % save last q
+                self.trigger(iatom); % set trigger flags replace with tnext = time + dtmin for all trigger items?
+                self.update_dq(iatom);
+            end
+            
         end
         
         function dint(self, iatom)
@@ -456,31 +505,31 @@ classdef QdlSystem < handle
             
             elseif self.source_type(iatom) == self.SourceDC
                 
-                self.x(iatom) = self.Xdc(iatom);
+                self.x(iatom) = self.xdc(iatom);
                 
             elseif self.source_type(iatom) == self.SourcePWM
                 
                 if self.duty(iatom) == 0
-                    self.x(iatom) = self.X1(iatom);
+                    self.x(iatom) = self.x1(iatom);
                     
                 elseif self.duty(iatom) == 1
-                    self.x(iatom) = self.X2(iatom);
+                    self.x(iatom) = self.x2(iatom);
 
                 else
 
                     w = mod(self.time, self.period(iatom));
 
                     if self.isnear(w, self.period(iatom))
-                        self.x(iatom) = self.X2(iatom);
+                        self.x(iatom) = self.x1(iatom);
                         
                     elseif self.isnear(w, self.period(iatom) * self.duty(iatom))
-                        self.x(iatom) = self.X1(iatom);
+                        self.x(iatom) = self.x2(iatom);
                         
                     elseif w < self.period(iatom) * self.duty(iatom)
-                        self.x(iatom) = self.X2(iatom);
+                        self.x(iatom) = self.x1(iatom);
                         
                     else
-                        self.x(iatom) = self.X1(iatom);
+                        self.x(iatom) = self.x2(iatom);
                         
                     end
 
@@ -488,7 +537,7 @@ classdef QdlSystem < handle
             
             elseif self.source_type(iatom) == self.SourceSINE
                 
-                self.x(iatom) = self.Xdc(iatom) + self.Xa(iatom) * ...
+                self.x(iatom) = self.xdc(iatom) + self.xa(iatom) * ...
                     sin(2*pi*self.freq(iatom)*self.time + self.phi(iatom));
                 
             end
@@ -497,7 +546,7 @@ classdef QdlSystem < handle
             
         end
         
-        function [interp] = quantize(self, iatom)  
+        function interp = quantize(self, iatom)  
             
             if self.source_type(iatom) == self.SourceNone
             
@@ -585,8 +634,8 @@ classdef QdlSystem < handle
             
             elseif self.source_type(iatom) == self.SourceSINE
                 
-                [q, self.tnext(iatom)] = self.update_sine(self.Xdc(iatom), ...
-                    self.Xa(iatom), self.freq(iatom), self.phi(iatom), ...
+                [q, self.tnext(iatom)] = self.update_sine(self.xdc(iatom), ...
+                    self.xa(iatom), self.freq(iatom), self.phi(iatom), ...
                     self.time, self.dq(iatom));
                 
             end
@@ -603,6 +652,8 @@ classdef QdlSystem < handle
             self.tout(iatom, self.iout(iatom)) = self.time - self.dtmin/2;
             self.qout(iatom, self.iout(iatom)) = self.q(iatom, 1);
             
+            %if ~self.isnear(self.time, self.tout(iatom, self.iout(iatom)))
+            %if abs(self.time - self.tout(iatom, self.iout(iatom))) >= self.dtmin
             if self.time ~= self.tout(iatom, self.iout(iatom))
                 self.iout(iatom) = self.iout(iatom) + 1;
                 self.tout(iatom, self.iout(iatom)) = self.time;           
@@ -620,7 +671,7 @@ classdef QdlSystem < handle
              
         end
         
-        function [d] = f(self, iatom, qval)
+        function d = f(self, iatom, qval)
             
             d = 0;
             
@@ -647,17 +698,17 @@ classdef QdlSystem < handle
                     
                     % d = 1/L * [ E + T * qnode + Z * qbranch - q * R - vij ] 
 
-                    d = self.Linv(ibranch) * (self.E(ibranch) + self.T(ibranch,:) * self.x(1:self.nnode) ...
+                    d = self.Linv(ibranch) * (self.E(ibranch) + self.T(ibranch,:) * self.q(1:self.nnode, 2) ...
                         + self.Z(ibranch,:) * self.q(self.nnode+1:end, 2) - qval * self.R(ibranch) + vij);
 
                 end
                 
             elseif self.source_type(iatom) == self.SourceSINE
                 
-                d1 = 2 * pi * self.freq(iatom) * self.Xa(iatom) * ...
+                d1 = 2 * pi * self.freq(iatom) * self.xa(iatom) * ...
                     cos(2 * pi * self.freq(iatom) * self.time + self.phi(iatom));
                 
-                d2 = -4 * pi * pi * self.freq(iatom) * self.freq(iatom) * self.Xa(iatom) * ...
+                d2 = -4 * pi * pi * self.freq(iatom) * self.freq(iatom) * self.xa(iatom) * ...
                     sin(2 * pi * self.freq(iatom) * self.time + self.phi(iatom));
                 
                 if abs(d1) > abs(d2)
@@ -672,13 +723,25 @@ classdef QdlSystem < handle
         
         function dext(self, iatom)
             
+            if self.source_type(iatom) == self.SourceNone
+                
+                self.x(iatom) = self.x(iatom) + f(self, iatom, self.x(iatom)) * (self.time - self.tlast(iatom));
+            
+            end
+            
+            self.tlast(iatom) = self.time;
+
+        end 
+        
+        function trigger(self, iatom)
+            
             for jatom = 1:self.n
                 if self.M(iatom, jatom)
                     self.trig(jatom) = 1;
                 end
             end
-
-        end 
+            
+        end
         
         function update_dq(self, iatom)
             
@@ -694,23 +757,80 @@ classdef QdlSystem < handle
             
         end
             
-        function [x, t] = run_ss(self, dt)
+        function [t, x] = run_ss(self, dt, tstop)
             
-            a = zeros(self.n, self.n);
-            b = zeros(self.n, self.n);
+            n = self.n;
+            nn = self.nnode;
+            nb = self.nbranch;
             
-            for k=1:self.nnode
-                
-                a(k, k) = 1/C;
-                
-            end 
+            Ann = diag(self.Cinv)*(self.B-diag(self.G));
+            Anb = diag(self.Cinv)*(self.S - self.A);
+            Abn = diag(self.Linv)*(self.T + self.A');
+            Abb = diag(self.Linv)*(self.Z-diag(self.R));
+            
+            A = [Ann, Anb; Abn, Abb];
+            
+            B = diag(cat(1, self.Cinv, self.Linv));
+            
+            U = [self.H; self.E];
             
             t = 0:dt:self.tstop;
             npt = length(t);
+            
             x = zeros(self.n, npt);
             
-            for k=2:npt
+            x(:, 1) = self.x0;
+            
+            Apr = inv(eye(n)-dt*A);
+            Bpr = Apr*B*dt;
+            
+            for k = 2:npt
                 
+                x(:,k) = Apr*x(:,k-1) + Bpr*U;
+                
+            end
+            
+        end
+        
+        function plot(self, atom, dots, upd, cumm_upd, bins, xlbl, tss, xss, ymax)
+            
+            k = atom.index;
+            
+            if upd
+                yyaxis left
+            end
+            
+            if length(tss) > 1
+                plot(tss, xss, 'm--'); hold on;
+            end
+            
+            plot(self.tout(k,1:self.iout(k)), self.qout(k,1:self.iout(k)), 'b-'); hold on;
+            
+            if dots
+                plot(self.tout(k,1:2:self.iout(k)), self.qout(k,1:2:self.iout(k)), 'k.');
+            end
+            
+            ylabel('q');
+            
+            if upd
+                yyaxis right
+                
+                if cumm_upd
+                    plot(self.tupd(k,1:2:self.iupd(k)), cumsum(self.nupd(k,1:2:self.iupd(k)))/2, 'r-');
+                else
+                    histogram(self.tupd(k,1:2:self.iupd(k)), bins, 'EdgeColor', 'none', 'FaceAlpha', 0.3);
+                end
+                title(atom.name);
+                ylabel('updates');
+                if ymax > 0
+                    ylim([0, ymax]);
+                end
+            end
+            
+            xlim([-1.0, self.time]);
+            
+            if xlbl
+               xlabel('t (s)');
             end
             
         end
@@ -725,26 +845,29 @@ classdef QdlSystem < handle
             
         end
         
-        function [q, tnext] = update_sine(X0, xa, f, phi, t, dq)
+        function [q, tnext] = update_sine(x0, xa, f, phi, t, dq)
 
-            T = 1/f;    
-            w = mod(t, T);
-            t0 = t - w; 
-            omega = 2*pi*f;
-            theta = omega*w + phi;
-            x = xa * sin(2*pi*f*t);
+            T = 1/f;                 % period
+            w = mod(t, T);           % cycle time
+            t0 = t - w;              % cycle base time
+            omega = 2*pi*f;          % angular velocity
+            theta = omega*w + phi;   % wrapped angular position
+            x = xa * sin(2*pi*f*t);  % magnitude shifted by x0
 
-            if theta < pi/2
+            % determine next transition time. Saturate at +/- xa:
+            
+            if theta < pi/2        % quadrant I
                 tnext = t0 + (asin(min(1, (x + dq)/xa))) / omega;
-            elseif theta < pi
+            elseif theta < pi      % quadrant II
                 tnext = t0 + T/2 - (asin(max(0, (x - dq)/xa))) / omega;
-            elseif theta < 3*pi/2
+            elseif theta < 3*pi/2  % quadrant III
                 tnext = t0 + T/2 - (asin(max(-1, (x - dq)/xa))) / omega;
-            else
+            else                   % quadrant IV
                 tnext = t0 + T + (asin(min(0, (x + dq)/xa))) / omega;
             end
-
-            q = X0 + xa * sin(2*pi*f*t + phi);
+            
+            % update state for current time:
+            q = x0 + xa * sin(2*pi*f*t + phi);
 
         end
         

@@ -13,11 +13,11 @@ classdef QdlNode < QdlDevice
         sbranches
         nbnode
         nsbranch
-        V0
-        Vdc
-        Va
-        V1
-        V2
+        v0
+        vdc
+        va
+        v1
+        v2
         source_type
         
     end
@@ -34,32 +34,32 @@ classdef QdlNode < QdlDevice
             
             self.B = double.empty(0);
             self.S = double.empty(0);
-            self.bnodes = double.empty(0);
-            self.sbranches = double.empty(0);
+            self.bnodes = QdlNode.empty(0);
+            self.sbranches = QdlBranch.empty(0);
             self.nbnode = 0;
             self.nsbranch = 0;
             
             self.source_type = QdlSystem.SourceNone;
-            self.V0 = 0;
-            self.Vdc = 0;
-            self.Va = 0;
-            self.V1 = 0;
-            self.V2 = 0;
+            self.v0 = 0;
+            self.vdc = 0;
+            self.va = 0;
+            self.v1 = 0;
+            self.v2 = 0;
             
         end
         
-        function add_bnode(self, gain, node)
+        function add_bnode(self, node, gain)
             
             self.nbnode = self.nbnode + 1;
-            self.T(self.nbnode) = gain;
+            self.B(self.nbnode) = gain;
             self.nbnodes(self.nbnode) = node;
             
         end
         
-        function add_sbranch(self, gain, branch)
+        function add_sbranch(self, branch, gain)
             
             self.nsbranch = self.nsbranch + 1;
-            self.Z(self.nsbranch) = gain;
+            self.S(self.nsbranch) = gain;
             self.sbranches(self.nsbranch) = branch;
             
         end
