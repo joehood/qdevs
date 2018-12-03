@@ -1,6 +1,6 @@
 
-dqmin = 0.1;
-dqmax = 0.1;
+dqmin = 0.01;
+dqmax = 0.01;
 dqerr = 0.01;
 
 R = [ 1,    1,    1,    1   ];
@@ -10,7 +10,7 @@ G = [ 1,    1,    1,    1   ];
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
 
-n = 2; % must be even
+n = 4; % must be even
 
 nodes = QdlNode.empty(0);
 branches = QdlBranch.empty(0);
@@ -41,6 +41,9 @@ for i=1:n
         disp(num2str(nn));
         nodes(nn) = QdlNode(lbl, c, g, 0);
         sys.add_node(nodes(nn));
+        
+        l = 1;
+        r = 0.01;
         
         if i > 1
             nb = nb + 1;
@@ -73,7 +76,7 @@ end
 sys.init();
 sys.runto(100);
 sys.H(1) = 10.0;
-sys.runto(50000);
+sys.runto(15000);
 
 nbins = 500;
 ymax = 0;
@@ -83,16 +86,16 @@ disp(strcat('order=', num2str(nn+nb)));
 figure;
 
 subplot(4, 1, 1);
-sys.plot(nodes(1), 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(nodes(1), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(4, 1, 2);
-sys.plot(nodes(1+n), 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(nodes(1+n), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(4, 1, 3);
-sys.plot(nodes(nn-n), 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(nodes(nn-n), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(4, 1, 4);
-sys.plot(nodes(nn), 0, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(nodes(nn), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 
 

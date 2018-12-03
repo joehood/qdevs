@@ -1,4 +1,4 @@
-clear variables
+ clear variables
 
 dqmin = 0.001;
 dqmax = 0.001;

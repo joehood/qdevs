@@ -1,7 +1,7 @@
 clear variables
 
-dqmin = 5;
-dqmax = 5;
+dqmin = 0.1;
+dqmax = 0.1;
 dqerr = 0.001;
 
 Va = 10;
@@ -45,17 +45,18 @@ sys.H(3) = -0.5;
 sys.runto(20);
 
 nbins = 100;
+ymax = 100;
 
 figure;
 
 subplot(3, 1, 1);
-sys.plot(va, 0, 1, 0, nbins, 0, 0, 0, 100);
+sys.plot(va, 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(3, 1, 2);
-sys.plot(barm, 0, 1, 0, nbins, 0, 0, 0, 10);
+sys.plot(barm, 0, 1, 1, 0, nbins, 0, 0, 0, ymax*10);
 
 subplot(3, 1, 3);
-sys.plot(nmech, 0, 1, 0, nbins, 0, 0, 0, 10);
+sys.plot(nmech, 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 
 
