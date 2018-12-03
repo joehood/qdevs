@@ -648,9 +648,11 @@ classdef QdlSystem < handle
         
         function save(self, iatom) 
             
-            self.iout(iatom) = self.iout(iatom) + 1;
-            self.tout(iatom, self.iout(iatom)) = self.time - self.dtmin/2;
-            self.qout(iatom, self.iout(iatom)) = self.q(iatom, 1);
+            if 0  % enable for zoh recording
+                self.iout(iatom) = self.iout(iatom) + 1;
+                self.tout(iatom, self.iout(iatom)) = self.time - self.dtmin/2;
+                self.qout(iatom, self.iout(iatom)) = self.q(iatom, 1);
+            end
             
             %if ~self.isnear(self.time, self.tout(iatom, self.iout(iatom)))
             %if abs(self.time - self.tout(iatom, self.iout(iatom))) >= self.dtmin
@@ -808,15 +810,15 @@ classdef QdlSystem < handle
             end
             
             if dots
-                plot(self.tout(k,1:2:self.iout(k)), ...
-                    self.qout(k,1:2:self.iout(k)), 'k.', ...
+                plot(self.tout(k,1:1:self.iout(k)), ...
+                    self.qout(k,1:1:self.iout(k)), 'k.', ...
                     'DisplayName','qss'); hold on;
             end
             
             if lines
                 plot(self.tout(k,1:self.iout(k)), ...
                     self.qout(k,1:self.iout(k)), 'b-', ...
-                    'DisplayName', 'qss (zoh)'); hold on;
+                    'DisplayName', 'qss'); hold on;
             end
 
             ylabel('atom state');
@@ -827,10 +829,10 @@ classdef QdlSystem < handle
                 updstr = strcat('updates per: ', num2str(self.time/bins), ' s');
                 
                 if cumm_upd
-                    plot(self.tupd(k,1:2:self.iupd(k)), cumsum(self.nupd(k,1:2:self.iupd(k)))/2, 'r-',...
+                    plot(self.tupd(k,1:1:self.iupd(k)), cumsum(self.nupd(k,1:1:self.iupd(k)))/2, 'r-',...
                         'DisplayName', 'updates');
                 else
-                    histogram(self.tupd(k,1:2:self.iupd(k)), bins, 'EdgeColor', 'none', 'FaceAlpha', 0.3, ...
+                    histogram(self.tupd(k,1:1:self.iupd(k)), bins, 'EdgeColor', 'none', 'FaceAlpha', 0.3, ...
                         'DisplayName', updstr);
                 end
                 title(atom.name);
