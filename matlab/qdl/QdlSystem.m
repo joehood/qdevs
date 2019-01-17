@@ -89,6 +89,14 @@ classdef QdlSystem < handle
         phi         % sine wave phase (rad) (n)
         period      % cached 1/f (s)
         
+        % state space
+        dtss % state space timestep
+        Ass  % state space A matrix
+        Bss  % state space B matix
+        Uss  % state space U vector
+        Apr  % state space descretixed A' matrix (backwards Euler)
+        Bpr  % state space descretixed B' matrix (backwards Euler)
+        
         timer
 
     end
@@ -765,30 +773,32 @@ classdef QdlSystem < handle
             nn = self.nnode;
             nb = self.nbranch;
             
-            Ann = diag(self.Cinv)*(self.B-diag(self.G));
-            Anb = diag(self.Cinv)*(self.S - self.A);
-            Abn = diag(self.Linv)*(self.T + self.A');
-            Abb = diag(self.Linv)*(self.Z-diag(self.R));
+            self.dtss = dt;
             
-            A = [Ann, Anb; Abn, Abb];
+            Ann = diag(self.Cinv) * (self.B - diag(self.G));
+            Anb = diag(self.Cinv) * (self.S - self.A);
+            Abn = diag(self.Linv) * (self.T + self.A');
+            Abb = diag(self.Linv) * (self.Z - diag(self.R));
             
-            B = diag(cat(1, self.Cinv, self.Linv));
+            self.Ass = [Ann, Anb; Abn, Abb];
             
-            U = [self.H; self.E];
+            self.Bss = diag(cat(1, self.Cinv, self.Linv));
             
-            t = self.time:dt:tstop;
+            self.Uss = [self.H; self.E];
+            
+            t = self.time : dt : tstop;
             npt = length(t);
             
             x = zeros(self.n, npt);
             
             x(:, 1) = self.x;
             
-            Apr = inv(eye(n)-dt*A);
-            Bpr = Apr*B*dt;
+            self.Apr = inv(eye(n) - dt * self.Ass);
+            self.Bpr = self.Apr * self.Bss * dt;
             
             for k = 2:npt
                 
-                x(:,k) = Apr*x(:,k-1) + Bpr*U;
+                x(:,k) = self.Apr * x(:,k-1) + self.Bpr * self.Uss;
                 
             end
             

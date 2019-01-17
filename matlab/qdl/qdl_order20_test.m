@@ -2,7 +2,7 @@ clear variables
 
 dqmin = 0.001;
 dqmax = 0.001;
-dqerr = 0.001;
+dqerr = 0.01;
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
 
@@ -33,19 +33,34 @@ end
 
 sys.init();
 sys.E(1) = E1;
-[t1, x1] = sys.run_ss(0.01, 20);
+
+tic
+[t1, x1] = sys.run_ss(0.001, 20);
+toc
+
+tic
 sys.runto(20);
+toc
+
 sys.E(1) = E2;
 [t2, x2] = sys.run_ss(0.01, 40);
 sys.runto(40);
 
 figure;
+rows = 5;
+cols = 1;
+for k = 2:nn
+    subplot(rows, cols, k-1)
+    sys.plot(nodes(k), 1, 0, 1, 0, 500, 0, [t1,t2], [x1(k,:),x2(k,:)], 0);
+end
 
-sys.plot(nodes(5), 1, 0, 1, 0, 500, 0, [t1,t2], [x1(5,:),x2(5,:)], 0);
-
-%for k = 1:nn
-%    sys.plot(nodes(5), 1, 0, 1, 0, 500, 0, 0, 0, 0);
-%end
+figure;
+rows = 5;
+cols = 1;
+for k = 1:nb
+    subplot(rows, cols, k)
+    sys.plot(branches(k), 1, 0, 1, 0, 500, 0, [t1,t2], [x1(k+nn,:),x2(k+nn,:)], 0);
+end
 
 
 
