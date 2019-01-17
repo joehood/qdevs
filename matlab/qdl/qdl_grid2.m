@@ -10,7 +10,7 @@ G = [ 1,    1,    1,    1   ];
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
 
-n = 4; % must be even
+n = 6; % must be even
 
 nodes = QdlNode.empty(0);
 branches = QdlBranch.empty(0);
@@ -73,20 +73,30 @@ for i=1:n
     
 end
 
+% get stiffness ratio:
+sys.build_ss();
+e = eig(sys.Ass)
+sr = max(abs(e)) / min(abs(e))
+
 sys.init();
 sys.runto(100);
+
+% print order:
+disp(strcat('order=', num2str(nn+nb)));
+
 sys.H(1) = 10.0;
-sys.runto(15000);
+sys.runto(1000);
 
 nbins = 500;
 ymax = 0;
 
-disp(strcat('order=', num2str(nn+nb)));
-
 figure;
 
 subplot(4, 1, 1);
-sys.plot(nodes(1), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
+
+%        atom,     dots, lines, upd, cumm_upd, bins,  xlbl, tss, xss, ymax)
+
+sys.plot(nodes(1), 0,    1,     1,   0,        nbins, 0,    0,   0,   ymax);
 
 subplot(4, 1, 2);
 sys.plot(nodes(1+n), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);

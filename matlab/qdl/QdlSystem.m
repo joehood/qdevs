@@ -767,14 +767,12 @@ classdef QdlSystem < handle
             
         end
             
-        function [t, x] = run_ss(self, dt, tstop)
+        function build_ss(self)
             
             n = self.n;
             nn = self.nnode;
             nb = self.nbranch;
-            
-            self.dtss = dt;
-            
+
             Ann = diag(self.Cinv) * (self.B - diag(self.G));
             Anb = diag(self.Cinv) * (self.S - self.A);
             Abn = diag(self.Linv) * (self.T + self.A');
@@ -785,6 +783,16 @@ classdef QdlSystem < handle
             self.Bss = diag(cat(1, self.Cinv, self.Linv));
             
             self.Uss = [self.H; self.E];
+          
+        end
+        
+        function [t, x] = run_ss(self, dt, tstop)
+            
+            n = self.n;
+            nn = self.nnode;
+            nb = self.nbranch;
+            
+            self.dtss = dt;
             
             t = self.time : dt : tstop;
             npt = length(t);
@@ -856,8 +864,8 @@ classdef QdlSystem < handle
             
             loc = 'southeast';
 
-            leg = legend();
-            leg.Location = loc;
+            %leg = legend();
+            %leg.Location = loc;
             
             if xlbl
                xlabel('t (s)');
