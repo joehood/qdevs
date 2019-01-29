@@ -3,9 +3,12 @@ dqmin = 0.01;
 dqmax = 0.01;
 dqerr = 0.01;
 
-R = [ 1,    1,    1,    1   ];
-L = [ 1e-6, 1e-2, 1e2,  1e6 ];
-C = [ 1e-6, 1e-2, 1e2,  1e6 ];
+emin = -6;
+emax = 6;
+
+R = [ 1*10^emin, 1e-2, 1e2,  1*10^emax ];
+L = [ 1*10^emin, 1e-2, 1e2,  1*10^emax ];
+C = [ 1*10^emin, 1e-2, 1e2,  1*10^emax ];
 G = [ 1,    1,    1,    1   ];
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
@@ -42,8 +45,8 @@ for i=1:n
         nodes(nn) = QdlNode(lbl, c, g, 0);
         sys.add_node(nodes(nn));
         
-        l = 1;
-        r = 0.01;
+        %l = 1;
+        %r = 0.01;
         
         if i > 1
             nb = nb + 1;
@@ -73,12 +76,13 @@ for i=1:n
     
 end
 
+sys.init();
+
 % get stiffness ratio:
 sys.build_ss();
 e = eig(sys.Ass)
 sr = max(abs(e)) / min(abs(e))
 
-sys.init();
 sys.runto(100);
 
 % print order:
