@@ -339,8 +339,14 @@ classdef QdlSystem < handle
             self.build_lim();
             
             self.build_map();
+            
+            self.build_qdl();
 
             self.time = 0.0;
+  
+        end
+        
+        function build_qdl(self)
             
             % dimension liqss arrays:
             
@@ -370,14 +376,14 @@ classdef QdlSystem < handle
             self.iout = zeros(self.n, 1);
             self.iout(:) = 1;
             
-            % update counters:
+            % set up counters:
             
             self.nupd = zeros(self.n, self.npt);
             self.tupd = zeros(self.n, self.npt);  
             self.iupd = zeros(self.n, 1);
             self.iupd(:) = 1;
             
-        end
+        end 
         
         function runto(self, tstop)
             
@@ -786,11 +792,9 @@ classdef QdlSystem < handle
           
         end
         
-        function [t, x] = run_ss(self, dt, tstop)
+        function [t, x] = run_ss_to(self, dt, tstop)
             
-            n = self.n;
-            nn = self.nnode;
-            nb = self.nbranch;
+            self.build_ss();
             
             self.dtss = dt;
             
@@ -801,7 +805,7 @@ classdef QdlSystem < handle
             
             x(:, 1) = self.x;
             
-            self.Apr = inv(eye(n) - dt * self.Ass);
+            self.Apr = inv(eye(self.n) - dt * self.Ass);
             self.Bpr = self.Apr * self.Bss * dt;
             
             for k = 2:npt

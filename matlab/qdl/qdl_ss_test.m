@@ -32,47 +32,52 @@ sys.add_branch(b3);
 sys.add_branch(b4);
 
 sys.init();
-[t1, x1] = sys.run_ss(0.01, 10);
-sys.runto(10);
-sys.E(1) = 2;
-[t2, x2] = sys.run_ss(0.01, 200);
-sys.runto(20);
 
+sys.build_ss();
+e = eig(sys.Ass);
+lambda_min = min(abs(e))
+lambda_max = max(abs(e))
+stiffness = lambda_max / lambda_min
+
+dt_analytical = lambda_min * 1e-3;
+
+[tss, xss] = sys.run_ss_to(dt_analytical, 10);
+sys.runto(10);
 
 figure;
 r = 5;
 c = 1;
 
 subplot(r, c, 1);
-sys.plot(n1, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(1,:),x2(1,:)], 0);
+sys.plot(n1, 1, 0, 1, 0, 400, 0, tss, xss(1,:), 0);
 
 subplot(r, c, 2);
-sys.plot(n2, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(2,:), x2(2,:)], 0);
+sys.plot(n2, 1, 0, 1, 0, 400, 0, tss, xss(2,:), 0);
 
 subplot(r, c, 3);
-sys.plot(n3, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(3,:), x2(3,:)], 0);
+sys.plot(n3, 1, 0, 1, 0, 400, 0, tss, xss(3,:), 0);
 
 subplot(r, c, 4);
-sys.plot(n4, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(4,:), x2(4,:)], 0);
+sys.plot(n4, 1, 0, 1, 0, 400, 0, tss, xss(4,:), 0);
 
 subplot(r, c, 5);
-sys.plot(n5, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(5,:), x2(5,:)], 0);
+sys.plot(n5, 1, 0, 1, 0, 400, 0, tss, xss(5,:), 0);
 
 figure;
 r = 4;
 c = 1;
 
 subplot(r, c, 1);
-sys.plot(b1, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(6,:), x2(6,:)], 0);
+sys.plot(b1, 1, 0, 1, 0, 400, 0, tss, xss(6,:), 0);
 
 subplot(r, c, 2);
-sys.plot(b2, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(7,:), x2(7,:)], 0);
+sys.plot(b2, 1, 0, 1, 0, 400, 0, tss, xss(7,:), 0);
 
 subplot(r, c, 3);
-sys.plot(b3, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(8,:), x2(8,:)], 0);
+sys.plot(b3, 1, 0, 1, 0, 400, 0, tss, xss(8,:), 0);
 
 subplot(r, c, 4);
-sys.plot(b4, 1, 0, 1, 0, 400, 0, [t1, t2], [x1(9,:), x2(9,:)], 0);
+sys.plot(b4, 1, 0, 1, 0, 400, 0, tss, xss(9,:), 0);
 
 
 
