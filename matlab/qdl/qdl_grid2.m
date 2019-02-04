@@ -1,15 +1,16 @@
+clear
+format long
 
 dqmin = 0.01;
 dqmax = 0.01;
 dqerr = 0.01;
 
-emin = -6;
-emax = 6;
+p = 6.0570584;
 
-R = [ 1*10^emin, 1e-2, 1e2,  1*10^emax ];
-L = [ 1*10^emin, 1e-2, 1e2,  1*10^emax ];
-C = [ 1*10^emin, 1e-2, 1e2,  1*10^emax ];
-G = [ 1,    1,    1,    1   ];
+R = [ 1, 1, 1, 1 ];
+L = [ 10^-p, 10^(-p/2), 10^(p/2),  10^p ];
+C = [ 10^-p, 10^(-p/2), 10^(p/2),  10^p ];
+G = [ 1, 1, 1, 1 ];
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
 
@@ -49,6 +50,7 @@ for i=1:n
         %r = 0.01;
         
         if i > 1
+            
             nb = nb + 1;
             lbl = strcat('branch', num2str(nb), '(L=', num2str(l), ')');
             branches(nb) = QdlBranch(lbl, l, r, 0);
@@ -61,6 +63,7 @@ for i=1:n
         end
         
         if j > 1
+            
             nb = nb + 1;
             lbl = strcat('branch', num2str(nb), '(L=', num2str(l), ')');
             branches(nb) = QdlBranch(lbl, l, r, 0);
@@ -80,16 +83,27 @@ sys.init();
 
 % get stiffness ratio:
 sys.build_ss();
-e = eig(sys.Ass)
-sr = max(abs(e)) / min(abs(e))
+e = eig(sys.Ass);
+lambda_max = max(abs(e))
+lambda_min = min(abs(e))
+tau_max = 1/lambda_min
+tau_min = 1/lambda_max
+stiffness = lambda_max / lambda_min
+
+dtss = tau_min / 100
+dt_analytic = tau_min / 1000
+
+semilogy(sort(abs(e)))
 
 sys.runto(100);
+
+[tss, xss] = sys.run_ss_to(dtss, 1000);
 
 % print order:
 disp(strcat('order=', num2str(nn+nb)));
 
 sys.H(1) = 10.0;
-sys.runto(1000);
+sys.runto(200);
 
 nbins = 500;
 ymax = 0;
