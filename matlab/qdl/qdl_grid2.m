@@ -1,16 +1,20 @@
+clear
+format long
 
 dqmin = 0.01;
 dqmax = 0.01;
 dqerr = 0.01;
 
-R = [ 1,    1,    1,    1   ];
-L = [ 1e-6, 1e-2, 1e2,  1e6 ];
-C = [ 1e-6, 1e-2, 1e2,  1e6 ];
-G = [ 1,    1,    1,    1   ];
+p = 6.0570584;
+
+R = [ 1, 1, 1, 1 ];
+L = [ 10^-p, 10^(-p/2), 10^(p/2),  10^p ];
+C = [ 10^-p, 10^(-p/2), 10^(p/2),  10^p ];
+G = [ 1, 1, 1, 1 ];
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
 
-n = 4; % must be even
+n = 6; % must be even
 
 nodes = QdlNode.empty(0);
 branches = QdlBranch.empty(0);
@@ -42,10 +46,11 @@ for i=1:n
         nodes(nn) = QdlNode(lbl, c, g, 0);
         sys.add_node(nodes(nn));
         
-        l = 1;
-        r = 0.01;
+        %l = 1;
+        %r = 0.01;
         
         if i > 1
+            
             nb = nb + 1;
             lbl = strcat('branch', num2str(nb), '(L=', num2str(l), ')');
             branches(nb) = QdlBranch(lbl, l, r, 0);
@@ -58,6 +63,7 @@ for i=1:n
         end
         
         if j > 1
+            
             nb = nb + 1;
             lbl = strcat('branch', num2str(nb), '(L=', num2str(l), ')');
             branches(nb) = QdlBranch(lbl, l, r, 0);
@@ -74,19 +80,41 @@ for i=1:n
 end
 
 sys.init();
+
+% get stiffness ratio:
+sys.build_ss();
+e = eig(sys.Ass);
+lambda_max = max(abs(e))
+lambda_min = min(abs(e))
+tau_max = 1/lambda_min
+tau_min = 1/lambda_max
+stiffness = lambda_max / lambda_min
+
+dtss = tau_min / 100
+dt_analytic = tau_min / 1000
+
+semilogy(sort(abs(e)))
+
 sys.runto(100);
+
+[tss, xss] = sys.run_ss_to(dtss, 1000);
+
+% print order:
+disp(strcat('order=', num2str(nn+nb)));
+
 sys.H(1) = 10.0;
-sys.runto(15000);
+sys.runto(200);
 
 nbins = 500;
 ymax = 0;
 
-disp(strcat('order=', num2str(nn+nb)));
-
 figure;
 
 subplot(4, 1, 1);
-sys.plot(nodes(1), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
+
+%        atom,     dots, lines, upd, cumm_upd, bins,  xlbl, tss, xss, ymax)
+
+sys.plot(nodes(1), 0,    1,     1,   0,        nbins, 0,    0,   0,   ymax);
 
 subplot(4, 1, 2);
 sys.plot(nodes(1+n), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);

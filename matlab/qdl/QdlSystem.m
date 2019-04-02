@@ -89,6 +89,14 @@ classdef QdlSystem < handle
         phi         % sine wave phase (rad) (n)
         period      % cached 1/f (s)
         
+        % state space
+        dtss % state space timestep
+        Ass  % state space A matrix
+        Bss  % state space B matix
+        Uss  % state space U vector
+        Apr  % state space descretixed A' matrix (backwards Euler)
+        Bpr  % state space descretixed B' matrix (backwards Euler)
+        
         timer
 
     end
@@ -331,8 +339,14 @@ classdef QdlSystem < handle
             self.build_lim();
             
             self.build_map();
+            
+            self.build_qdl();
 
             self.time = 0.0;
+  
+        end
+        
+        function build_qdl(self)
             
             % dimension liqss arrays:
             
@@ -362,14 +376,14 @@ classdef QdlSystem < handle
             self.iout = zeros(self.n, 1);
             self.iout(:) = 1;
             
-            % update counters:
+            % set up counters:
             
             self.nupd = zeros(self.n, self.npt);
             self.tupd = zeros(self.n, self.npt);  
             self.iupd = zeros(self.n, 1);
             self.iupd(:) = 1;
             
-        end
+        end 
         
         function runto(self, tstop)
             
@@ -759,36 +773,44 @@ classdef QdlSystem < handle
             
         end
             
-        function [t, x] = run_ss(self, dt, tstop)
+        function build_ss(self)
             
             n = self.n;
             nn = self.nnode;
             nb = self.nbranch;
+
+            Ann = diag(self.Cinv) * (self.B - diag(self.G));
+            Anb = diag(self.Cinv) * (self.S - self.A);
+            Abn = diag(self.Linv) * (self.T + self.A');
+            Abb = diag(self.Linv) * (self.Z - diag(self.R));
             
-            Ann = diag(self.Cinv)*(self.B-diag(self.G));
-            Anb = diag(self.Cinv)*(self.S - self.A);
-            Abn = diag(self.Linv)*(self.T + self.A');
-            Abb = diag(self.Linv)*(self.Z-diag(self.R));
+            self.Ass = [Ann, Anb; Abn, Abb];
             
-            A = [Ann, Anb; Abn, Abb];
+            self.Bss = diag(cat(1, self.Cinv, self.Linv));
             
-            B = diag(cat(1, self.Cinv, self.Linv));
+            self.Uss = [self.H; self.E];
+          
+        end
+        
+        function [t, x] = run_ss_to(self, dt, tstop)
             
-            U = [self.H; self.E];
+            self.build_ss();
             
-            t = self.time:dt:tstop;
+            self.dtss = dt;
+            
+            t = self.time : dt : tstop;
             npt = length(t);
             
             x = zeros(self.n, npt);
             
             x(:, 1) = self.x;
             
-            Apr = inv(eye(n)-dt*A);
-            Bpr = Apr*B*dt;
+            self.Apr = inv(eye(self.n) - dt * self.Ass);
+            self.Bpr = self.Apr * self.Bss * dt;
             
             for k = 2:npt
                 
-                x(:,k) = Apr*x(:,k-1) + Bpr*U;
+                x(:,k) = self.Apr * x(:,k-1) + self.Bpr * self.Uss;
                 
             end
             
@@ -846,8 +868,8 @@ classdef QdlSystem < handle
             
             loc = 'southeast';
 
-            leg = legend();
-            leg.Location = loc;
+            %leg = legend();
+            %leg.Location = loc;
             
             if xlbl
                xlabel('t (s)');
