@@ -297,4 +297,5 @@ __pycache__/
 # Matlab autosave
 *.asv
 
-
+# misc
+*.lnk
