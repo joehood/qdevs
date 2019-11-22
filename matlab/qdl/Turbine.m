@@ -1,4 +1,4 @@
-clear variables
+conclear variables
 
 dqmin = 0.01;
 dqmax = 0.01;
@@ -15,24 +15,24 @@ Jm = 0.01;
 Bm = 0.001;
 Jp = 0.01;
 Fp = 1;
-JL = 0.5
+JL = 0.5;
 TL = 0;
 BL = 0.1;
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
 
-vs = QdlNode('terminal voltage (V)', Clim, Gs, Vs*Gs);
+vs = QdlNode('terminal voltage (V)', Clim, Gs, Vs*Gs);% this voltage can resembles the fuel part
 vs.source_type = QdlSystem.SourceDC;
 vs.vdc = 10.0;
 
-vm = QdlNode('rotor speed (rad/s)', Jm, Bm, 0);
-vl = QdlNode('load speed (rad/s)', JL, BL, TL);
+vm = QdlNode('Turbine Shaft speed (rad/s)', Jm, Bm, 0);
+vl = QdlNode('Generator shaft speed (rad/s)', JL, BL, TL);
 
 vg = QdlNode('ground', 0, 0, 0);
 vg.source_type = QdlSystem.SourceDC;
 vg.vdc = 0;
 
-ba = QdlBranch('armature current (A)', La, Ra, 0);
+ba = QdlBranch('armature current (A)', La, Ra, 0);%can be Across value of fuel
 bs = QdlBranch('shaft torque (N.m)', Jp, Fp, 0);
 
 ba.connect(vs, vg);
@@ -49,9 +49,9 @@ sys.add_branch(ba);
 sys.add_branch(bs);
 
 sys.init();
-sys.runto(20);
-sys.H(2) = -2;
-sys.runto(30);
+% sys.runto(10);
+% sys.H(2) = -2;
+sys.runto(50);
 
 figure;
 
