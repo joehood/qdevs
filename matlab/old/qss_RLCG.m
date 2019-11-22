@@ -14,7 +14,7 @@ A = [-R/L  -1/L ; 1/C  -G/C ];
 B = [ 1/L 0 ; 0 1/C];
 u = [ E  H ]';
 
-Apr = inv(eye(2) - h * A)
+Apr = inv(eye(2) - h * A);
 Bpr = h * B * Apr;
 
 tstop = 5.0;
