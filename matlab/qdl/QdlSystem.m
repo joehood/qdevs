@@ -439,10 +439,8 @@ classdef QdlSystem < handle
         
         function init(self)
             
-            self.build_lim();
-            
+            self.build_lim();  
             self.build_map();
-            
             self.build_qdl();
 
             self.time = 0.0;
@@ -765,7 +763,7 @@ classdef QdlSystem < handle
         
         function save(self, iatom) 
             
-            if 0  % enable for zoh recording
+            if 0  % (enable zoh recording by changing to if 1)
                 self.iout(iatom) = self.iout(iatom) + 1;
                 self.tout(iatom, self.iout(iatom)) = self.time - self.dtmin/2;
                 self.qout(iatom, self.iout(iatom)) = self.q(iatom, 1);
@@ -911,10 +909,8 @@ classdef QdlSystem < handle
             self.Apr = inv(eye(self.n) - dt * self.Ass);
             self.Bpr = self.Apr * self.Bss * dt;
             
-            for k = 2:npt
-                
-                x(:,k) = self.Apr * x(:,k-1) + self.Bpr * self.Uss;
-                
+            for k = 2:npt     
+                x(:,k) = self.Apr * x(:,k-1) + self.Bpr * self.Uss; 
             end
             
         end
@@ -931,6 +927,7 @@ classdef QdlSystem < handle
             
             self.Apr = inv(eye(self.n) - dt * self.Ass);
             self.Bpr = self.Apr * self.Bss * dt;
+            
         end
         
         function step_ss(self)
