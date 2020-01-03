@@ -6,18 +6,18 @@ from matplotlib import pyplot as plt
 
 def simple():
 
-    gen = liqss.gentem()
+    sys = liqss.Module("simple")
 
-    node1 = liqss.Atom("node1", 1.0, 1.0, 1.0, dq=1e-0)
+    node1 = liqss.Atom("node1", 1.0, 1.0, 1.0, dq=1e-2)
     branch1 = liqss.Atom("branch1", 1.0, 1.0, 1.0, dq=1e-2)
 
     node1.connect(branch1, -1.0)
     branch1.connect(node1, 1.0)
 
-    gen.add_atoms(node1, branch1)
+    sys.add_atoms(node1, branch1)
 
-    gen.initialize()
-    gen.run_to(10.0)
+    sys.initialize()
+    sys.run_to(10.0)
 
     plt.figure()
     plt.subplot(2, 1, 1)
@@ -29,19 +29,19 @@ def simple():
     plt.show()
 
 
-def angegates():
+def delegates():
 
     dqmin = 0.01
     dqmax = 0.01
     dqerr = 0.01
 
-    gen = liqss.gentem(dqmin=dqmin, dqmax=dqmax, dqerr=dqerr)
+    sys = liqss.Module("delegates", dqmin=dqmin, dqmax=dqmax, dqerr=dqerr)
 
-    def f1(gen):
-        return 1.0 - q + gen.branch1.q
+    def f1():
+        return 1.0 - sys.node1.q + sys.branch1.q
 
-    def f2(gen):
-        return 1.0 - q - gen.node1.q
+    def f2():
+        return 1.0 - sys.branch1.q - sys.node1.q
 
     node1 = liqss.Atom("node1", func=f1)
     branch1 = liqss.Atom("branch1", func=f2)
@@ -49,10 +49,10 @@ def angegates():
     node1.connect(branch1)
     branch1.connect(node1)
 
-    gen.add_atoms(node1, branch1)
+    sys.add_atoms(node1, branch1)
 
-    gen.initialize()
-    gen.run_to(10.0)
+    sys.initialize()
+    sys.run_to(10.0)
 
     plt.figure()
     plt.subplot(2, 1, 1)
@@ -132,8 +132,7 @@ def genset():
         return Vfd * cos(ang.q) - Rs * (b11 * fqr.q + b12 * fQ.q) - wm.q * fdr.q
 
     def dfF():
-        d = VF - (a21 * fdr.q + a22 * fF.q + a23 * fD.q) * RF
-        return d
+        return VF - (a21 * fdr.q + a22 * fF.q + a23 * fD.q) * RF
 
     def dfD():
         return -(a31 * fdr.q + a32 * fF.q + a33 * fD.q) * RD
@@ -195,5 +194,5 @@ def genset():
 if __name__ == "__main__":
 
     #simple()
-    #angegates()
+    #delegates()
     genset()
