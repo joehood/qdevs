@@ -5,16 +5,16 @@ dqmin = 0.01;
 dqmax = 0.01;
 dqerr = 0.01;
 
-p = 6.0570584;
+p = 3.0;
 
 R = [ 1, 1, 1, 1 ];
 L = [ 1, 1, 1, 1 ];
-C = [ 10^-p, 10^(-p/2), 10^(p/2),  10^p ];
+C = [ 10^-6, 10^-3, 1,  10^3];
 G = [ 1, 1, 1, 1 ];
 
 sys = QdlSystem(dqmin, dqmax, dqerr);
 
-n = 6; % must be even
+n = 4; % must be even
 
 nodes = QdlNode.empty(0);
 branches = QdlBranch.empty(0);
@@ -41,7 +41,7 @@ for i=1:n
         end
 
         nn = (i-1)*n+j;
-        lbl = strcat('node', num2str(nn), '(C=', num2str(l), ')');
+        lbl = strcat('node ', num2str(nn), ' (C=', num2str(c), ')');
         disp(num2str(nn));
         nodes(nn) = QdlNode(lbl, c, g, 0);
         sys.add_node(nodes(nn));
@@ -52,7 +52,7 @@ for i=1:n
         if i > 1
             
             nb = nb + 1;
-            lbl = strcat('branch', num2str(nb), '(L=', num2str(l), ')');
+            lbl = strcat('branch ', num2str(nb), ' (L=', num2str(l), ')');
             branches(nb) = QdlBranch(lbl, l, r, 0);
             ni = (i-2)*n+j;
             nj = nn;
@@ -81,6 +81,8 @@ end
 
 sys.init();
 
+if 1
+
 % get stiffness ratio:
 sys.build_ss();
 e = eig(sys.Ass);
@@ -99,20 +101,25 @@ semilogy(sort(abs(e)))
 % print order:
 disp(strcat('order=', num2str(nn+nb)));
 
+end
+
 % perform qdl simulation:
 
-sys.runto(100);
-sys.H(1) = 10.0;  % apply disturbance
-sys.runto(200);
+sys.H(1) = 10.0;
+sys.runto(5000);
+sys.H(1) = 20.0;  % apply disturbance
+sys.runto(10000);
 
 % perform ss simulations for comparison:
 
+if 0
 sys.init()
 sys.init_ss()
 while sys.tss < 1
     
     sys.tss = sys.tss + sys.dtan
     
+end
 end
 
 % plot results:
@@ -127,13 +134,17 @@ subplot(4, 1, 1);
 sys.plot(nodes(1), 0,    1,     1,   0,        nbins, 0,    0, 0, ymax);
 
 subplot(4, 1, 2);
-sys.plot(nodes(1+n), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(nodes(n), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(4, 1, 3);
-sys.plot(nodes(nn-n), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
+sys.plot(nodes(nn-n+1), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
 
 subplot(4, 1, 4);
 sys.plot(nodes(nn), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);
+
+nn
+
+sys.iupdates
 
 
 

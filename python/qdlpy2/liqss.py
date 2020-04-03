@@ -2,6 +2,7 @@
 from matplotlib import pyplot as plt
 from collections import OrderedDict as odict
 
+
 _EPS = 1.0e-9
 _INF = float('inf')
 _MAXITER = 1000
@@ -14,14 +15,15 @@ class SourceType:
     SINE = "SINE"
     PWM = "PWM"
     RAMP = "RAMP"
+    FUNCTION = "FUNCTION"
 
 
 class Atom(object):
 
     def __init__(self, name, a=0.0, b=0.0, c=0.0, source_type=SourceType.NONE,
-                 x0=0.0, x1=0.0, x2=0.0, xa=0.0, freq=0.0, phi=0.0, func=None, 
+                 x0=0.0, x1=0.0, x2=0.0, xa=0.0, freq=0.0, phi=0.0, func=None,
                  duty=0.0, t1=0.0, t2=0.0, dq=None, dqmin=None, dqmax=None,
-                 dqerr=None, dtmin=None, dmax=1e5, units=""):
+                 dqerr=None, dtmin=None, dmax=1e5, units="", srcfunc=None, srcdt=None):
 
         self.name = name
 
@@ -89,6 +91,10 @@ class Atom(object):
         if func:
             self.func = func
 
+        # playback function:
+        self.srcfunc = srcfunc
+        self.srcdt = srcdt
+
         # other member variables:
         self.qlo = 0.0   
         self.qhi = 0.0    
@@ -114,6 +120,8 @@ class Atom(object):
 
         self.units = units
 
+        self.implicit = True
+
     def connect(self, atom, coeff=0.0):
 
         self.recieve_from[atom] = coeff
@@ -136,13 +144,19 @@ class Atom(object):
         self.time = t0
         self.tnext = _INF
 
-        self.x = self.x0
-        self.q = self.x0
-        self.q0 = self.x0
+        if self.source_type == SourceType.FUNCTION or False:
+            self.x = self.srcfunc()
+            self.q = self.x
+            self.q0 = self.x
+        else:
+            self.x = self.x0
+            self.q = self.x0
+            self.q0 = self.x0
+
         self.dq = self.dqmin
         self.qhi = self.q + self.dq
         self.qlo = self.q - self.dq
-        
+
         self.tout = [self.time]
         self.qout = [self.q0]
         self.nupd = [0]
@@ -164,10 +178,6 @@ class Atom(object):
 
         self.dint()
         self.quantize()
-
-        #self.d = self.f(self.q)
-        #self.d = max(self.d, -self.dmax)
-        #self.d = min(self.d, self.dmax)
 
         self.ta()
 
@@ -191,7 +201,15 @@ class Atom(object):
 
     def dint(self):
         
-        if self.source_type == SourceType.NONE:
+        if self.source_type == SourceType.CONSTANT:
+
+            self.x = self.x0
+
+        elif self.source_type == SourceType.FUNCTION:
+
+            self.x = self.srcfunc()
+
+        elif self.source_type == SourceType.NONE:
 
             self.x += self.d * (self.time - self.tlast)
 
@@ -213,7 +231,11 @@ class Atom(object):
 
         self.d0 = self.d
 
-        if self.source_type in (SourceType.NONE, SourceType.RAMP):
+        if self.source_type == SourceType.FUNCTION:
+
+            self.q = self.x
+
+        elif self.source_type in (SourceType.NONE, SourceType.RAMP):
 
             if self.x >= self.qhi:
 
@@ -229,7 +251,7 @@ class Atom(object):
 
             self.qhi = self.qlo + 2.0 * self.dq
 
-            if change:  # we've ventured out of (qlo, qhi) bounds
+            if change and self.implicit:  # we've ventured out of (qlo, qhi) bounds
 
                 self.d = self.f(self.q)
 
@@ -249,7 +271,11 @@ class Atom(object):
 
     def ta(self):
 
-        if self.source_type == SourceType.NONE:
+        if self.source_type == SourceType.FUNCTION:
+
+            self.tnext = self.time + self.srcdt
+
+        elif self.source_type == SourceType.NONE:
 
             if self.d > 0.0:
                 self.tnext = self.time + (self.qhi - self.x) / self.d
@@ -342,6 +368,176 @@ class Atom(object):
             self.qzoh.append(self.q)
 
 
+class ComplexAtom(Atom):
+
+    def __init__(self, *args, freq1=1.0, **kwargs):
+
+        Atom.__init__(self, *args, **kwargs)
+
+        self.x0 = complex(self.x0, 0.0)
+
+        # other member variables:
+        self.qlo = complex(0.0, 0.0)   
+        self.qhi = complex(0.0, 0.0)     
+        self.x = self.x0    
+        self.d = complex(0.0, 0.0)       
+        self.d0 = complex(0.0, 0.0)      
+        self.q = self.x0      
+        self.q0 = self.x0 
+        
+        self.freq1 = freq1
+        
+    def initialize(self, t0):
+
+        self.tlast = t0
+        self.time = t0
+        self.tnext = _INF
+
+        self.x = self.x0
+        self.q = self.x0
+        self.q0 = self.x0
+        self.dq = self.dqmin
+        self.qhi = complex(self.q.real + self.dq, self.q.imag + self.dq)
+        self.qlo = complex(self.q.real - self.dq, self.q.imag - self.dq)
+        
+        self.tout = [self.time]
+        self.qout = [self.q0]
+        self.nupd = [0]
+
+        self.tzoh = [self.time]
+        self.qzoh = [self.q0]
+
+        self.updates = 0
+
+    def update(self, time):
+
+        self.time = time
+        self.updates += 1
+        self.triggered = False
+
+        self.d = self.f(self.q)
+
+        self.dint()
+        self.quantize()
+
+        self.ta()
+
+        # trigger external update if quantized output changed:
+        
+        if self.q != self.q0:
+            self.save()
+            self.q0 = self.q
+            self.trigger()
+            self.update_dq()
+
+    def dint(self):
+        
+        self.x = complex(self.x.real + self.d.real * (self.time - self.tlast), 
+                         self.x.imag + self.d.imag * (self.time - self.tlast))
+
+        self.tlast = self.time
+
+    def step(self, time):
+
+        self.time = time
+        self.updates += 1
+        self.d = self.f(self.x)
+        self.dint()
+        self.q = self.x
+        self.save()
+        self.q0 = self.q
+
+    def quantize(self):
+        
+        interp = False
+        change = False
+
+        self.d0 = self.d
+
+        if self.x.real >= self.qhi.real:
+
+            self.q = complex(self.qhi.real, self.q.imag)
+            self.qlo = complex(self.qlo.real + self.dq, self.qlo.imag) 
+            change = True
+
+        elif self.x.real <= self.qlo.real:
+
+            self.q = complex(self.qlo.real, self.q.imag)
+            self.qlo = complex(self.qlo.real - self.dq, self.qlo.imag) 
+            change = True
+
+        if self.x.imag >= self.qhi.imag:
+
+            self.q = complex(self.q.real, self.qhi.imag)
+            self.qlo = complex(self.qlo.real, self.qlo.imag + self.dq) 
+            change = True
+
+        elif self.x.imag <= self.qlo.imag:
+
+            self.q = complex(self.q.real, self.qlo.imag)
+            self.qlo = complex(self.qlo.real, self.qlo.imag - self.dq)
+            change = True
+
+        self.qhi = complex(self.qlo.real + 2.0 * self.dq, self.qlo.imag + 2.0 * self.dq)
+
+        if change and self.implicit:  # we've ventured out of (qlo, qhi) bounds
+
+            self.d = self.f(self.q)
+
+            # if the derivative has changed signs, then we know 
+            # we are in a potential oscillating situation, so
+            # we will set the q such that the derivative ~= 0:
+
+            if (self.d.real * self.d0.real) < 0 or (self.d.imag * self.d0.imag) < 0: 
+                flo = self.f(self.qlo) 
+                fhi = self.f(self.qhi)
+                if flo != fhi:
+                    a = (2.0 * self.dq) / (fhi - flo)
+                    self.q = self.qhi - a * fhi
+                    interp = True
+
+        return interp
+
+    def ta(self):
+
+        if self.d.real > 0.0:
+            treal = self.time + (self.qhi.real - self.x.real) / self.d.real
+        elif self.d.real < 0.0:
+            treal = self.time + (self.qlo.real - self.x.real) / self.d.real
+        else:
+            treal = _INF
+
+        if self.d.imag > 0.0:
+            timag = self.time + (self.qhi.imag - self.x.imag) / self.d.imag
+        elif self.d.imag < 0.0:
+            timag = self.time + (self.qlo.imag - self.x.imag) / self.d.imag
+        else:
+            timag = _INF
+
+        self.tnext = min(treal, timag)
+        self.tnext = max(self.tnext, self.tlast + self.dtmin)
+
+    def update_dq(self):
+
+        if not self.dqerr:
+            return
+        else:
+            if self.dqerr <= 0.0:
+                return
+
+        if not (self.dqmin or self.dqmax):
+            return
+
+        if (self.dqmax - self.dqmin) < _EPS:
+            return
+            
+        self.dq = min(self.dqmax, max(self.dqmin, abs(self.dqerr * abs(self.q)))) 
+            
+        self.qlo = self.q - complex(self.dq, self.dq) 
+
+        self.qhi = self.q + complex(self.dq, self.dq) 
+
+
 class Module(object):
 
     def __init__(self, name, dqmin=None, dqmax=None, dqerr=None, dtmin=None,
@@ -410,7 +606,7 @@ class Module(object):
         for atom in self.atoms.values():
             atom.initialize(t0)
 
-    def run_to(self, tstop, fixed_dt=None):
+    def run_to(self, tstop, fixed_dt=None, verbose=False):
 
         self.tstop = tstop
 
@@ -425,7 +621,6 @@ class Module(object):
                 self.time += dt
             return
 
-        
         #self.print_percentage(header=True)
 
         for i in range(1):
@@ -451,7 +646,7 @@ class Module(object):
 
         while self.time < self.tstop:
             self.advance()
-            if self.print_time and self.time-last_print_time > 0.01:
+            if verbose and self.time-last_print_time > 0.01:
                 print("t = {0:5.2f} s".format(self.time))
                 last_print_time = self.time
             tlast = self.time

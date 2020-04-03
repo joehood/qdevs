@@ -3,7 +3,7 @@ format long
 
 dqmin = 0.01;
 dqmax = 0.01;
-dqerr = 0.01;
+dqerr = 0.01
 
 p = 6.0570584;
 
@@ -15,7 +15,7 @@ G = [ 1, 1, 1, 1 ];
 sys = QdlSystem(dqmin, dqmax, dqerr);
 sys2 = QdlSystem(dqmin, dqmax, dqerr);
 
-n = 6; % must be even
+n = 4; % must be even
 
 nodes = QdlNode.empty(0);
 branches = QdlBranch.empty(0);
@@ -42,7 +42,7 @@ for i=1:n
         end
 
         nn = (i-1)*n+j;
-        lbl = strcat('node', num2str(nn), '(C=', num2str(l), ')');
+        lbl = strcat('node', num2str(nn), '(C=', num2str(c), ')');
         disp(num2str(nn));
         nodes(nn) = QdlNode(lbl, c, g, 0);
         sys.add_node(nodes(nn));
@@ -85,6 +85,8 @@ end
 
 sys.init();
 
+if 0
+    
 % get stiffness ratio:
 sys.build_ss();
 e = eig(sys.Ass);
@@ -104,59 +106,68 @@ semilogy(sort(abs(e)))
 order = nn + nb
 disp(strcat('order=', num2str(order)));
 
+end 
+
 % perform qdl simulation:
 
 sys.H(1) = 10.0;
-sys.runto(100);
+%sys.runto(10000);
 
-% perform ss simulations for comparison:
-sys2.init();
-sys2.H(1) = 10.0;
-sys2.build_ss();
-sys2.tss = 0;
-sys2.init_ss(dtan);
+C
 
-maxerr = zeros(order, 1);
-k = ones(order, 1)  % to track qdl results 
+if 0
 
-% run state space simulation and compare results:
+    % perform ss simulations for comparison:
+    sys2.init();
+    sys2.H(1) = 10.0;
+    sys2.build_ss();
+    sys2.tss = 0;
+    sys2.init_ss(dtan);
 
-while sys2.tss < 1e-2
-    
-    sys2.step_ss();
-      
-    for i = 1:order
-        
-        while sys2.tss >= sys.tout(i, k(i))
-            err = 0;
-            if sys2.xss(i) ~= 0
-                err = abs(sys.qout(i, k(i)) - sys2.xss(i)); % / sys2.xss(i);
+    maxerr = zeros(order, 1);
+    k = ones(order, 1)  % to track qdl results 
+
+    % run state space simulation and compare results:
+
+    while sys2.tss < 1e-2
+
+        sys2.step_ss();
+
+        for i = 1:order
+
+            while sys2.tss >= sys.tout(i, k(i))
+                err = 0;
+                if sys2.xss(i) ~= 0
+                    err = abs(sys.qout(i, k(i)) - sys2.xss(i)); % / sys2.xss(i);
+                end
+                if err > maxerr(i)
+                    maxerr(i) = err;
+                    err
+                    sys.tout(i, k(i))
+                    sys2.tss
+                end
+                k(i) = k(i) + 1;
             end
-            if err > maxerr(i)
-                maxerr(i) = err;
-                err
-                sys.tout(i, k(i))
-                sys2.tss
-            end
-            k(i) = k(i) + 1;
+
         end
-    
+
     end
-    
+
+    maxerr
+
+    % 2-norm:
+    %  |x| = sqrt(sum(|xk|^2, 1, n))  (rms)
+
 end
-
-maxerr
-
-% 2-norm:
-%  |x| = sqrt(sum(|xk|^2, 1, n))  (rms)
-
-% plot results:
+    
+% plot results
 
 nbins = 500;
 ymax = 0;
 
 figure;
-% plot args: (atom, dots, lines, upd, cumm_upd, bins, xlbl, tss, xss, ymax)
+
+% atom, dots, lines, upd, cumm_upd, bins, xlbl, tss, xss, ymax
 
 subplot(4, 1, 1);
 sys.plot(nodes(1), 0, 1, 1, 0, nbins, 0, 0, 0, ymax);

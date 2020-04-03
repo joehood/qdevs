@@ -115,6 +115,8 @@ classdef QdlSystem < handle
         Bpr  % state space descretixed B' matrix (backwards Euler)
         
         timer
+        
+        iupdates
 
     end
     
@@ -490,6 +492,8 @@ classdef QdlSystem < handle
             
             self.tstop = tstop;
             
+            self.iupdates = 0
+            
             % force initial update and save for this run period:
             
             for iatom = 1:self.n
@@ -557,6 +561,7 @@ classdef QdlSystem < handle
             for iatom = 1:self.n
                 if self.tnext(iatom) <= self.time || force
                    self.internal_update(iatom);
+                   self.iupdates = self.iupdates + 1;
                 end
             end  
             
@@ -566,6 +571,7 @@ classdef QdlSystem < handle
                 for iatom = 1:self.n
                     if self.trig(iatom)
                        self.internal_update(iatom);
+                       self.iupdates = self.iupdates + 1;
                     end
                 end 
             end
