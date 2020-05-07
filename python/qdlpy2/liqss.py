@@ -12,6 +12,7 @@ class SourceType:
 
     NONE = "NONE"
     CONSTANT = "CONSTANT"
+    STEP = "STEP"
     SINE = "SINE"
     PWM = "PWM"
     RAMP = "RAMP"
@@ -144,7 +145,7 @@ class Atom(object):
         self.time = t0
         self.tnext = _INF
 
-        if self.source_type == SourceType.FUNCTION or False:
+        if self.source_type == SourceType.FUNCTION:
             self.x = self.srcfunc()
             self.q = self.x
             self.q0 = self.x
@@ -152,6 +153,9 @@ class Atom(object):
             self.x = self.x0
             self.q = self.x0
             self.q0 = self.x0
+
+        if self.dqmin is None:
+            self.dqmin = self.sys.dqmin
 
         self.dq = self.dqmin
         self.qhi = self.q + self.dq
@@ -222,6 +226,13 @@ class Atom(object):
             else:
                 self.x = self.x2
 
+        elif self.source_type == SourceType.STEP:
+
+            if self.time < self.t1:
+                self.x = self.x0
+            else:
+                self.x = self.x1
+
         self.tlast = self.time
 
     def quantize(self):
@@ -231,7 +242,7 @@ class Atom(object):
 
         self.d0 = self.d
 
-        if self.source_type == SourceType.FUNCTION:
+        if self.source_type in (SourceType.FUNCTION, SourceType.STEP):
 
             self.q = self.x
 
@@ -297,6 +308,13 @@ class Atom(object):
                 else:
                     self.tnext = _INF
 
+            else:
+                self.tnext = _INF
+
+        elif self.source_type == SourceType.STEP:
+
+            if self.time < self.t1:
+                self.tnext = self.t1
             else:
                 self.tnext = _INF
 
