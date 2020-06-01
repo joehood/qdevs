@@ -1,4 +1,5 @@
 
+from math import sin, asin, pi
 from matplotlib import pyplot as plt
 from collections import OrderedDict as odict
 
@@ -24,7 +25,8 @@ class Atom(object):
     def __init__(self, name, a=0.0, b=0.0, c=0.0, source_type=SourceType.NONE,
                  x0=0.0, x1=0.0, x2=0.0, xa=0.0, freq=0.0, phi=0.0, func=None,
                  duty=0.0, t1=0.0, t2=0.0, dq=None, dqmin=None, dqmax=None,
-                 dqerr=None, dtmin=None, dmax=1e5, units="", srcfunc=None, srcdt=None):
+                 dqerr=None, dtmin=None, dmax=1e5, units="", srcfunc=None,
+                 srcdt=None, output_scale=1.0):
 
         self.name = name
 
@@ -50,6 +52,13 @@ class Atom(object):
         self.ramp_slope = 0.0
         if (self.t2 - self.t1) > 0:
             self.ramp_slope = (self.x2 - self.x1) / (self.t2 - self.t1)
+
+        # cache snie wave ta function params:
+
+        self.omega = 2.0 * pi * self.freq
+
+        if self.freq:
+            self.T = 1.0 / self.freq
 
         self.recieve_from = {}
         self.broadcast_to = []
@@ -122,6 +131,8 @@ class Atom(object):
         self.units = units
 
         self.implicit = True
+
+        self.output_scale = output_scale
 
     def connect(self, atom, coeff=0.0):
 
@@ -233,6 +244,13 @@ class Atom(object):
             else:
                 self.x = self.x1
 
+        elif self.source_type == SourceType.SINE:
+
+            if self.time >= self.t1:
+                self.x = self.x0 + self.xa * sin(self.omega * self.time + self.phi)
+            else:
+                self.x = self.x0
+
         self.tlast = self.time
 
     def quantize(self):
@@ -242,7 +260,7 @@ class Atom(object):
 
         self.d0 = self.d
 
-        if self.source_type in (SourceType.FUNCTION, SourceType.STEP):
+        if self.source_type in (SourceType.FUNCTION, SourceType.STEP, SourceType.SINE):
 
             self.q = self.x
 
@@ -317,6 +335,35 @@ class Atom(object):
                 self.tnext = self.t1
             else:
                 self.tnext = _INF
+
+        elif self.source_type == SourceType.SINE:
+
+            if self.time < self.t1:
+
+                self.tnext = self.t1
+
+            else: 
+
+                w = self.time % self.T             # cycle time
+                t0 = self.time - w                 # cycle start time
+                theta = self.omega * w + self.phi  # wrapped angular position
+
+                # value at current time w/o dc offset:
+                x = self.xa * sin(2.0 * pi * self.freq * self.time)
+
+                # determine next transition time. Saturate at +/- xa:
+            
+                if theta < pi/2.0:  # quadrant I
+                    self.tnext = t0 + (asin(min(1.0, (x + self.dq)/self.xa))) / self.omega
+
+                elif theta < pi:  # quadrant II
+                    self.tnext = t0 + self.T/2.0 - (asin(max(0.0, (x - self.dq)/self.xa))) / self.omega
+
+                elif theta < 3.0*pi/2:  # quadrant III
+                    self.tnext = t0 + self.T/2.0 - (asin(max(-1.0, (x - self.dq)/self.xa))) / self.omega
+
+                else:  # quadrant IV
+                    self.tnext = t0 + self.T + (asin(min(0.0, (x + self.dq)/self.xa))) / self.omega
 
         else:
             self.tnext = _INF
